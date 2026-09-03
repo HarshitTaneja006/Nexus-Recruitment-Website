@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Next.js build output
+.next/
+/out/
+/build/
+
+# Testing & Coverage
+/coverage/
+
+# Environment files
+.env
+.env*.local
+.env.development
+.env.test
+.env.production
+!.env.example
+
+# Local SQLite Database
+/db/*.db
+/db/*.db-journal
+prisma/*.db
+prisma/*.db-journal
+
+# Logs & Debugging
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+*.err
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# OS & IDE
+.DS_Store
+*.pem
+.vscode/
+.idea/
+.vercel/
+
+# Temporary / Scratch
+/scratch/
+/tool-results/
+/download/
+/upload/

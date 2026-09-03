@@ -1,0 +1,422 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/*
+ * NEXUS terminal theme — palette lifted from nexus.runs-on.dev:
+ * near-black navy background (#05080d), phosphor blue accents (#60a5fa),
+ * traffic-light red (#ff5f57), phosphor green status (#4ade80).
+ * Sharp corners (radius 0) for the authentic terminal feel.
+ */
+:root {
+  --radius: 0rem;
+  --background: #05080d;
+  --foreground: #d7e2ee;
+  --card: #070d16;
+  --card-foreground: #d7e2ee;
+  --popover: #0a111c;
+  --popover-foreground: #d7e2ee;
+  --primary: #60a5fa;
+  --primary-foreground: #05080d;
+  --secondary: #0f1a28;
+  --secondary-foreground: #c9d7e8;
+  --muted: #0d1622;
+  --muted-foreground: #7d8fa5;
+  --accent: #13233a;
+  --accent-foreground: #93c5fd;
+  --destructive: #ff5f57;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --border: #17263c;
+  --input: #1b2c46;
+  --ring: #60a5fa;
+  --chart-1: #60a5fa;
+  --chart-2: #4ade80;
+  --chart-3: #fbbf24;
+  --chart-4: #f472b6;
+  --chart-5: #34d399;
+  --sidebar: #070d16;
+  --sidebar-foreground: #d7e2ee;
+  --sidebar-primary: #60a5fa;
+  --sidebar-primary-foreground: #05080d;
+  --sidebar-accent: #13233a;
+  --sidebar-accent-foreground: #93c5fd;
+  --sidebar-border: #17263c;
+  --sidebar-ring: #60a5fa;
+}
+
+.dark {
+  --background: #05080d;
+  --foreground: #d7e2ee;
+  --card: #070d16;
+  --card-foreground: #d7e2ee;
+  --popover: #0a111c;
+  --popover-foreground: #d7e2ee;
+  --primary: #60a5fa;
+  --primary-foreground: #05080d;
+  --secondary: #0f1a28;
+  --secondary-foreground: #c9d7e8;
+  --muted: #0d1622;
+  --muted-foreground: #7d8fa5;
+  --accent: #13233a;
+  --accent-foreground: #93c5fd;
+  --destructive: #ff5f57;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --border: #17263c;
+  --input: #1b2c46;
+  --ring: #60a5fa;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    color-scheme: dark;
+    scroll-padding-top: 7rem; /* offset for sticky status bar + nav on anchor jumps */
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "ss01", "cv01";
+  }
+  ::selection {
+    background: rgba(96, 165, 250, 0.35);
+    color: #eaf2fc;
+  }
+}
+
+/* ---------- Terminal chrome ---------- */
+
+/* Subtle CRT scanlines over the whole page */
+.crt-overlay {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.022) 0px,
+    rgba(255, 255, 255, 0.022) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
+}
+
+.terminal-panel {
+  @apply border bg-card;
+  border-color: var(--border);
+  box-shadow:
+    inset 0 0 0 1px rgba(96, 165, 250, 0.04),
+    0 0 32px rgba(3, 8, 18, 0.6);
+}
+
+.glow-text {
+  text-shadow:
+    0 0 8px rgba(96, 165, 250, 0.55),
+    0 0 32px rgba(96, 165, 250, 0.22);
+}
+
+.glow-soft {
+  text-shadow: 0 0 12px rgba(96, 165, 250, 0.3);
+}
+
+/* /stats submission sparkline — per-day glyphs light up under the cursor */
+.spark-glyph {
+  cursor: crosshair;
+}
+.spark-glyph:hover {
+  transform: translateY(-2px) scale(1.25);
+  text-shadow:
+    0 0 10px rgba(96, 165, 250, 0.8),
+    0 0 28px rgba(96, 165, 250, 0.4);
+}
+
+/* Keyboard hint chips (⌘K etc.) */
+.key-hint {
+  @apply inline-flex items-center gap-1 border border-border bg-card px-1.5 py-0.5 font-mono text-[9px] tracking-widest text-muted-foreground;
+}
+
+.ok-text {
+  color: var(--ok);
+  text-shadow: 0 0 8px rgba(74, 222, 128, 0.4);
+}
+
+/* Blinking block cursor */
+.cursor-blink::after {
+  content: "▊";
+  margin-left: 2px;
+  color: var(--primary);
+  animation: blink 1.06s steps(1) infinite;
+}
+
+@keyframes blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* Pulsing status dot */
+.status-dot {
+  position: relative;
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: var(--ok);
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.9);
+}
+.status-dot::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  border: 1px solid rgba(74, 222, 128, 0.5);
+  animation: ping-ring 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes ping-ring {
+  0% { transform: scale(0.6); opacity: 1; }
+  80%, 100% { transform: scale(1.8); opacity: 0; }
+}
+
+/* Marquee */
+.marquee-track {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: marquee 30s linear infinite;
+  will-change: transform;
+}
+.marquee-track.reverse {
+  animation-direction: reverse;
+}
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* Section heading chip, e.g. "01 / MANIFESTO" */
+.section-tag {
+  @apply inline-flex items-center gap-2 border px-2.5 py-1 font-mono text-[11px] uppercase tracking-[0.22em];
+  border-color: var(--border);
+  color: var(--accent-foreground);
+  background: rgba(19, 35, 58, 0.35);
+}
+
+/* Dotted grid backdrop for sections */
+.grid-backdrop {
+  background-image:
+    linear-gradient(rgba(96, 165, 250, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(96, 165, 250, 0.05) 1px, transparent 1px);
+  background-size: 34px 34px;
+}
+
+/* Terminal scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1b2c46 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: rgba(13, 22, 34, 0.6);
+}
+*::-webkit-scrollbar-thumb {
+  background: #1b2c46;
+  border: 1px solid #16233a;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #2a3f61;
+}
+
+/* Typewriter caret line */
+@keyframes type-in {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+/* Focus visibility for keyboard users on dark terminal UI */
+:focus-visible {
+  outline: 2px solid rgba(96, 165, 250, 0.7);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track,
+  .status-dot::after,
+  .cursor-blink::after {
+    animation: none !important;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Print — Ctrl+P on /apply gives students a clean paper receipt:      */
+/* chrome (header/footer/overlay/buttons) drops out, panels go light.  */
+/* ------------------------------------------------------------------ */
+@media print {
+  html {
+    background: #fff !important;
+  }
+  body {
+    background: #fff !important;
+    color: #0b1220 !important;
+  }
+  .crt-overlay,
+  header,
+  footer,
+  aside,
+  .no-print {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+  /* paper-friendly panels: light bg, dark text, quiet borders */
+  .terminal-panel,
+  [class*="border-"] {
+    border-color: #cbd5e1 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  .terminal-panel * {
+    color: #0b1220 !important;
+    text-shadow: none !important;
+    animation: none !important;
+  }
+  .terminal-panel button,
+  button {
+    display: none !important;
+  }
+  a {
+    text-decoration: none !important;
+    color: #0b1220 !important;
+  }
+  /* keep section header strips readable on paper */
+  .terminal-panel > div:first-child {
+    background: #f1f5f9 !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Landing dept cards — accent-tinted hover via --dept-accent hex      */
+/* (set inline from lib/departments so OG images and CSS never drift)  */
+/* ------------------------------------------------------------------ */
+.dept-card:hover {
+  border-color: color-mix(in srgb, var(--dept-accent) 45%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--dept-accent) 22%, transparent),
+    0 0 24px color-mix(in srgb, var(--dept-accent) 12%, transparent);
+}
+.dept-card .dept-corner {
+  color: color-mix(in srgb, var(--dept-accent) 65%, transparent);
+}
+
+/* Interview-sheet print masthead — screen:none, paper:terminal block */
+.nx-print-only {
+  display: none;
+}
+
+@media print {
+  /* INTERVIEW SHEET mode: body.print-detail is set while the review
+     DetailDialog calls window.print() — only the dialog hits the paper. */
+  body.print-detail > *:not([data-nx-print-keep]) {
+    display: none !important;
+  }
+  body.print-detail .nx-print-only {
+    display: block !important;
+  }
+  body.print-detail [data-nx-print-keep] {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: auto !important;
+    bottom: auto !important;
+    /* LightningCSS drops explicit `translate:` values as redundant next to
+       transform:none — so neutralize the Tailwind translate utility at the
+       custom-property level instead (translate: var(--tw-translate-x) ...) */
+    --tw-translate-x: 0 !important;
+    --tw-translate-y: 0 !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    border: 1px solid #94a3b8 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+    color: #0b1220 !important;
+    padding: 24px !important;
+  }
+  body.print-detail [data-nx-print-keep] * {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  body.print-detail [data-nx-print-keep] button,
+  body.print-detail [data-nx-print-keep] select {
+    display: none !important;
+  }
+  body.print-detail [data-nx-print-keep] [data-nx-screen-only] {
+    display: none !important;
+  }
+}
