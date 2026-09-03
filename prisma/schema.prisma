@@ -1,0 +1,97 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String            @id @default(cuid())
+  email       String            @unique
+  name        String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  application Application?
+  draft       ApplicationDraft?
+}
+
+// Final, submitted application (one per student)
+model Application {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email       String   @unique
+  fullName    String
+  joinYear    Int
+  yearOfStudy Int
+  department  String
+  whatsapp    String   @default("") // WhatsApp number — required so panels can reach candidates fast
+  answers     Json
+  links       Json
+  status      String   @default("SUBMITTED")
+  statusNote  String?
+  statusUpdatedAt DateTime?
+  reviewedBy  String?
+  // Interview scheduling (set by admins when status = INTERVIEW)
+  interviewAt     DateTime?
+  interviewMode   String?
+  // Clarification loop (status = NEEDS_INFO): admin asks → student answers
+  clarificationQuestion   String?
+  clarificationAnswer     String?
+  clarificationAskedAt    DateTime?
+  clarificationAnsweredAt DateTime?
+  // Audit trail of every review action [{status, note, by, at}]
+  statusHistory   Json     @default("[]")
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([department])
+  @@index([status])
+}
+
+// Outbox for status-change notifications. The PATCH admin route queues rows
+// here; a worker (Resend / Supabase Edge Function / cron) drains the queue in
+// production by claiming QUEUED rows and marking them SENT.
+model StatusNotification {
+  id            String    @id @default(cuid())
+  applicationId String
+  email         String
+  fullName      String
+  type          String    // STATUS_CHANGE | SUBMISSION_RECEIPT | DRAFT_REMINDER | CUSTOM
+  subject       String
+  body          String
+  channel       String    @default("email")
+  status        String    @default("QUEUED") // QUEUED | SENT | FAILED
+  lastError     String?   // delivery failure reason (set by the drain worker)
+  createdAt     DateTime  @default(now())
+  sentAt        DateTime?
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Auto-saved in-progress form data so students never lose their answers
+model ApplicationDraft {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email     String
+  data      Json
+  updatedAt DateTime @updatedAt
+}
+
+// Simple key/value runtime configuration (feature flags, toggles).
+// Keys used today: "stats_public" = "0" | "1"
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
