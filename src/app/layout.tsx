@@ -35,7 +35,13 @@ export const metadata: Metadata = {
     "design",
     "social media",
   ],
-  icons: { icon: "/logo.svg" },
+  icons: {
+    icon: [
+      { url: "/logo.svg", type: "image/svg+xml" },
+      { url: "/logo.png", type: "image/png" }
+    ],
+    apple: "/logo.png",
+  },
   alternates: { canonical: "/" },
   openGraph: {
     title: "NEXUS // RECRUITMENTS '26",

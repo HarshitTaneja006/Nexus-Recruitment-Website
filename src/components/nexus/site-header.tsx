@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { DRIVE, DRIVE_DEADLINE } from "@/lib/drive";
 import { useDriveOpen } from "@/lib/drive-client";
@@ -118,12 +119,22 @@ export function SiteHeader() {
       >
         <Link
           href="/"
-          className="group flex items-baseline gap-2 font-mono text-lg font-bold tracking-tight"
+          className="group flex items-center gap-2.5 font-mono text-lg font-bold tracking-tight"
         >
-          <span className="text-foreground group-hover:text-primary transition-colors">
-            NEXUS
+          <Image
+            src="/logo.png"
+            alt="NEXUS Logo"
+            width={24}
+            height={24}
+            className="h-6 w-6 rounded object-contain transition-transform group-hover:scale-105"
+            priority
+          />
+          <span className="flex items-baseline gap-1">
+            <span className="text-foreground group-hover:text-primary transition-colors">
+              NEXUS
+            </span>
+            <span className="text-primary glow-text">_</span>
           </span>
-          <span className="text-primary glow-text">_</span>
           <span className="hidden text-[10px] font-normal uppercase tracking-[0.25em] text-muted-foreground sm:inline">
             {"// "}{DRIVE.label}
           </span>

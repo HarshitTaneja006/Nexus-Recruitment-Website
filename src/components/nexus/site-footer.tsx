@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { DRIVE } from "@/lib/drive";
 import { DEPARTMENTS } from "@/lib/departments";
 
@@ -7,9 +8,18 @@ export function SiteFooter() {
     <footer className="mt-auto border-t border-border bg-card/40">
       <div className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-3">
         <div>
-          <p className="font-mono text-lg font-bold">
-            NEXUS<span className="text-primary glow-text">_</span>
-          </p>
+          <div className="flex items-center gap-2.5">
+            <Image
+              src="/logo.png"
+              alt="NEXUS Logo"
+              width={24}
+              height={24}
+              className="h-6 w-6 rounded object-contain"
+            />
+            <p className="font-mono text-lg font-bold">
+              NEXUS<span className="text-primary glow-text">_</span>
+            </p>
+          </div>
           <p className="mt-2 max-w-xs font-mono text-xs leading-relaxed text-muted-foreground">
             Student Tech Collective at VIT Chennai. One club, three
             departments, zero spectator mode.
