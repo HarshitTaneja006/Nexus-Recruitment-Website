@@ -15,18 +15,26 @@ const NAV_LINKS = [
   { href: "/stats", label: "STATS" },
 ];
 
-function UtcClock() {
+function IstClock() {
   const [time, setTime] = useState<string | null>(null);
   useEffect(() => {
     const update = () =>
-      setTime(new Date().toISOString().slice(11, 19));
+      setTime(
+        new Intl.DateTimeFormat("en-GB", {
+          timeZone: "Asia/Kolkata",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hourCycle: "h23",
+        }).format(new Date())
+      );
     update();
     const id = setInterval(update, 1000);
     return () => clearInterval(id);
   }, []);
   return (
     <span suppressHydrationWarning className="tabular-nums">
-      {time ?? "--:--:--"} UTC
+      {time ?? "--:--:--"} IST
     </span>
   );
 }
@@ -108,7 +116,7 @@ export function SiteHeader() {
           <span className="hidden md:inline" aria-label={open ? "Time left to apply" : "Applications closed"}>
             <DeadlineCountdown open={open} />
           </span>
-          <UtcClock />
+          <IstClock />
         </div>
       </div>
 

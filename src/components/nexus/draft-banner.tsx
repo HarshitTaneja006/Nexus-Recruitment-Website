@@ -19,6 +19,7 @@ export function DraftBanner({
   onDiscard: () => void;
 }) {
   const when = new Date(recoveredAt).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
     day: "2-digit",
     month: "short",
     hour: "2-digit",

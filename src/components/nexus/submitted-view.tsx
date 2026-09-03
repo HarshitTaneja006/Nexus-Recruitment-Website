@@ -84,6 +84,7 @@ export function SubmittedView({
   const driveOpen = useDriveOpen();
 
   const submittedAt = new Date(application.submittedAt).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
     day: "2-digit",
     month: "short",
     year: "numeric",

@@ -652,6 +652,7 @@ export function AdminDashboard() {
                         </td>
                         <td className="px-4 py-2.5 text-muted-foreground">
                           {new Date(app.submittedAt).toLocaleString("en-IN", {
+                            timeZone: "Asia/Kolkata",
                             day: "2-digit",
                             month: "short",
                             hour: "2-digit",
@@ -1437,6 +1438,7 @@ function DetailDialog({
                       icon={<CalendarDays className="h-3 w-3" />}
                       label="SUBMITTED"
                       value={new Date(application.submittedAt).toLocaleString("en-IN", {
+                        timeZone: "Asia/Kolkata",
                         day: "2-digit",
                         month: "short",
                         year: "numeric",
@@ -1693,6 +1695,7 @@ function DetailDialog({
                     ? `last: ${application.reviewedBy.split("@")[0]} · ${
                         application.statusUpdatedAt
                           ? new Date(application.statusUpdatedAt).toLocaleString("en-IN", {
+                              timeZone: "Asia/Kolkata",
                               day: "2-digit",
                               month: "short",
                               hour: "2-digit",
