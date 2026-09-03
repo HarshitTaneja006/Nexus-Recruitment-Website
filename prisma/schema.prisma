@@ -9,83 +9,87 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
   id          String            @id @default(cuid())
   email       String            @unique
   name        String?
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
   application Application?
   draft       ApplicationDraft?
+
+  @@map("users")
 }
 
 // Final, submitted application (one per student)
 model Application {
-  id          String   @id @default(cuid())
-  userId      String   @unique
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  email       String   @unique
-  fullName    String
-  joinYear    Int
-  yearOfStudy Int
-  department  String
-  whatsapp    String   @default("") // WhatsApp number — required so panels can reach candidates fast
-  answers     Json
-  links       Json
-  status      String   @default("SUBMITTED")
-  statusNote  String?
-  statusUpdatedAt DateTime?
-  reviewedBy  String?
-  // Interview scheduling (set by admins when status = INTERVIEW)
-  interviewAt     DateTime?
-  interviewMode   String?
-  // Clarification loop (status = NEEDS_INFO): admin asks → student answers
-  clarificationQuestion   String?
-  clarificationAnswer     String?
-  clarificationAskedAt    DateTime?
-  clarificationAnsweredAt DateTime?
-  // Audit trail of every review action [{status, note, by, at}]
-  statusHistory   Json     @default("[]")
-  submittedAt DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                  String    @unique @map("user_id")
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email                   String    @unique
+  fullName                String    @map("full_name")
+  joinYear                Int       @map("join_year")
+  yearOfStudy             Int       @map("year_of_study")
+  department              String
+  whatsapp                String    @default("")
+  answers                 Json      @default("{}")
+  links                   Json      @default("{}")
+  status                  String    @default("SUBMITTED")
+  statusNote              String?   @map("status_note")
+  statusUpdatedAt         DateTime? @map("status_updated_at")
+  reviewedBy              String?   @map("reviewed_by")
+  interviewAt             DateTime? @map("interview_at")
+  interviewMode           String?   @map("interview_mode")
+  clarificationQuestion   String?   @map("clarification_question")
+  clarificationAnswer     String?   @map("clarification_answer")
+  clarificationAskedAt    DateTime? @map("clarification_asked_at")
+  clarificationAnsweredAt DateTime? @map("clarification_answered_at")
+  statusHistory           Json      @default("[]") @map("status_history")
+  submittedAt             DateTime  @default(now()) @map("submitted_at")
+  updatedAt               DateTime  @default(now()) @updatedAt @map("updated_at")
 
   @@index([department])
   @@index([status])
+  @@map("applications")
 }
 
 // Outbox for status-change notifications. The PATCH admin route queues rows
 // here; a worker (Resend / Supabase Edge Function / cron) drains the queue in
 // production by claiming QUEUED rows and marking them SENT.
 model StatusNotification {
-  id            String    @id @default(cuid())
-  applicationId String
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicationId String    @map("application_id")
   email         String
-  fullName      String
-  type          String    // STATUS_CHANGE | SUBMISSION_RECEIPT | DRAFT_REMINDER | CUSTOM
+  fullName      String    @map("full_name")
+  type          String    @default("STATUS_CHANGE")
   subject       String
   body          String
   channel       String    @default("email")
-  status        String    @default("QUEUED") // QUEUED | SENT | FAILED
-  lastError     String?   // delivery failure reason (set by the drain worker)
-  createdAt     DateTime  @default(now())
-  sentAt        DateTime?
+  status        String    @default("QUEUED")
+  lastError     String?   @map("last_error")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  sentAt        DateTime? @map("sent_at")
 
   @@index([status])
   @@index([createdAt])
+  @@map("status_notifications")
 }
 
 // Auto-saved in-progress form data so students never lose their answers
 model ApplicationDraft {
-  id        String   @id @default(cuid())
-  userId    String   @unique
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @unique @map("user_id")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   email     String
-  data      Json
-  updatedAt DateTime @updatedAt
+  data      Json     @default("{}")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("application_drafts")
 }
 
 // Simple key/value runtime configuration (feature flags, toggles).
@@ -93,5 +97,7 @@ model ApplicationDraft {
 model Setting {
   key       String   @id
   value     String
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("settings")
 }
