@@ -158,27 +158,6 @@ export type Database = {
         }
         Relationships: []
       }
-      todos: {
-        Row: {
-          created_at: string
-          id: number
-          is_complete: boolean
-          name: string
-        }
-        Insert: {
-          created_at?: string
-          id?: number
-          is_complete?: boolean
-          name: string
-        }
-        Update: {
-          created_at?: string
-          id?: number
-          is_complete?: boolean
-          name?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
