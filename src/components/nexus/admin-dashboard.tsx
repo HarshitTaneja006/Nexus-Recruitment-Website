@@ -1382,7 +1382,7 @@ function DetailDialog({
     <Dialog open={Boolean(application)} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         data-nx-print-keep
-        className="max-h-[85vh] overflow-y-auto overflow-x-hidden border-border bg-popover font-mono sm:max-w-2xl"
+        className="max-h-[85vh] w-full min-w-0 overflow-y-auto overflow-x-hidden border-border bg-popover font-mono [overflow-wrap:anywhere] sm:max-w-2xl [&>*]:min-w-0 [&>*]:max-w-full"
       >
         {application ? (
           <>
@@ -1400,8 +1400,8 @@ function DetailDialog({
                 nexus.runs-on.dev
               </p>
             </div>
-            <DialogHeader>
-              <DialogTitle className="flex items-center justify-between gap-2 text-left text-base tracking-wider">
+            <DialogHeader className="min-w-0 max-w-full overflow-hidden">
+              <DialogTitle className="flex min-w-0 max-w-full items-center justify-between gap-2 text-left text-base tracking-wider">
                 <span className="min-w-0 truncate">
                   <span className="text-primary">$ cat</span> {application.id}.log
                 </span>
@@ -1425,8 +1425,8 @@ function DetailDialog({
                 </span>
               </DialogTitle>
               <DialogDescription asChild>
-                <div className="space-y-3 text-left">
-                  <div className="grid gap-px border border-border bg-border text-xs sm:grid-cols-2">
+                <div className="min-w-0 max-w-full space-y-3 overflow-hidden text-left">
+                  <div className="grid min-w-0 max-w-full gap-px border border-border bg-border text-xs sm:grid-cols-2">
                     <Meta icon={<Mail className="h-3 w-3" />} label="EMAIL" value={application.email} />
                     <Meta
                       icon={<MessageCircle className="h-3 w-3" />}
@@ -1508,9 +1508,9 @@ function DetailDialog({
                         href={v.startsWith("http") ? v : `https://${v}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 border border-border bg-secondary/40 px-2.5 py-1 text-[10px] tracking-wider text-primary transition-colors hover:bg-secondary"
+                        className="inline-flex max-w-full items-center gap-1.5 break-all border border-border bg-secondary/40 px-2.5 py-1 text-[10px] tracking-wider text-primary transition-colors [overflow-wrap:anywhere] hover:bg-secondary"
                       >
-                        {k}: {v} <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                        {k}: {v} <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
                       </a>
                     ))}
                 </div>
@@ -1519,7 +1519,7 @@ function DetailDialog({
 
             {/* status editor */}
             <section
-              className="border border-border bg-secondary/30 p-3"
+              className="min-w-0 max-w-full overflow-hidden border border-border bg-secondary/30 p-3"
               aria-label="Review status editor"
             >
               <p className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.25em] text-muted-foreground">
@@ -1733,7 +1733,7 @@ function DetailDialog({
             {/* review audit trail */}
             {application.statusHistory.length > 0 ? (
               <section
-                className="border border-border bg-secondary/30 p-3"
+                className="min-w-0 max-w-full overflow-hidden border border-border bg-secondary/30 p-3"
                 aria-label="Review history"
               >
                 <p className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.25em] text-muted-foreground">
@@ -1771,7 +1771,7 @@ function DetailDialog({
                         </span>
                         {event.note ? (
                           <span
-                            className="min-w-0 max-w-full flex-1 break-words text-muted-foreground/70"
+                            className="min-w-0 max-w-full flex-1 break-all text-muted-foreground/70 [overflow-wrap:anywhere]"
                             title={event.note}
                           >
                             {isStudentReply ? `“${event.note}”` : event.note}
@@ -1787,13 +1787,13 @@ function DetailDialog({
               </section>
             ) : null}
 
-            <div className="divide-y divide-border border border-border">
+            <div className="min-w-0 max-w-full overflow-hidden divide-y divide-border border border-border">
               {entries.map(([id, value]) => (
-                <article key={id} className="min-w-0 p-3">
-                  <h4 className="break-words text-[10px] leading-snug text-muted-foreground">
+                <article key={id} className="min-w-0 max-w-full overflow-hidden p-3">
+                  <h4 className="max-w-full break-words text-[10px] leading-snug text-muted-foreground [overflow-wrap:anywhere]">
                     <span className="text-primary/70">Q:</span> {questionLabel(id)}
                   </h4>
-                  <p className="mt-1.5 whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-foreground">
+                  <p className="mt-1.5 max-w-full whitespace-pre-wrap break-all font-sans text-sm leading-relaxed text-foreground [overflow-wrap:anywhere]">
                     {value}
                   </p>
                 </article>
@@ -1826,12 +1826,12 @@ function Meta({
   accent?: string;
 }) {
   return (
-    <div className="bg-card px-3 py-2">
+    <div className="min-w-0 max-w-full overflow-hidden bg-card px-3 py-2">
       <p className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.2em] text-muted-foreground">
         {icon}
         {label}
       </p>
-      <p className={cn("mt-0.5 break-all text-foreground", accent)} title={value}>
+      <p className={cn("mt-0.5 max-w-full break-all text-foreground [overflow-wrap:anywhere]", accent)} title={value}>
         {value}
       </p>
     </div>
