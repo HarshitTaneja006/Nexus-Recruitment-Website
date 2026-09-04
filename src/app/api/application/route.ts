@@ -6,8 +6,8 @@ import {
   findApplicationByEmail,
   submitApplication,
   resolveUserId,
-  queueNotification,
 } from "@/lib/storage";
+import { deliverNotificationNow } from "@/lib/mailer";
 import {
   submitApplicationSchema,
   buildAnswersSchema,
@@ -100,8 +100,8 @@ export async function POST(req: NextRequest) {
       input: { ...parsed.data, whatsapp },
     });
 
-    // Queue the submission receipt (outbox worker delivers it - SMTP when
-    // SMTP_HOST is set). Best-effort: never blocks the 201.
+    // Direct delivery: the receipt goes out over SMTP right away instead
+    // of sitting QUEUED for the drain worker. Best-effort: never blocks the 201.
     try {
       const dept = getDepartment(department);
       const lines = [
@@ -123,16 +123,16 @@ export async function POST(req: NextRequest) {
         "- NEXUS core team · VIT Chennai",
         "https://nexus.runs-on.dev",
       ];
-      await queueNotification({
+      await deliverNotificationNow({
         applicationId: application.id,
         email: application.email,
         fullName: application.fullName,
         type: "SUBMISSION_RECEIPT",
         subject: `[NEXUS '26] Application received - d ${dept?.dir ?? department}/`,
-        body: lines.join("\n"),
+        text: lines.join("\n"),
       });
     } catch (notifyErr) {
-      console.error("[api/application] receipt queue failed:", notifyErr);
+      console.error("[api/application] receipt delivery failed:", notifyErr);
     }
 
     return NextResponse.json({ application }, { status: 201 });

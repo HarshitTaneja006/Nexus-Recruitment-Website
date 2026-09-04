@@ -17,6 +17,7 @@
  *  MAIL_FROM    "NEXUS Recruitments <recruitment@nexusvit.in>"
  */
 import nodemailer from "nodemailer";
+import { recordNotificationDelivery } from "@/lib/storage";
 
 const MAIL_FROM =
   process.env.MAIL_FROM ?? "NEXUS Recruitments <recruitment@nexusvit.in>";
@@ -69,6 +70,73 @@ export async function sendMail(params: {
     text: params.text,
     html: renderEmailHtml(params.subject, params.text),
   });
+}
+
+/**
+ * Direct delivery for flows that must email immediately (submission
+ * receipts, review actions) instead of queueing for the drain worker.
+ * Sends via SMTP now and records the outcome as SENT/FAILED so the
+ * outbox keeps its history - nothing ever sits in QUEUED.
+ *
+ * Sandbox (SMTP_HOST unset): no relay to call, so the hand-off is
+ * accepted and recorded SENT, mirroring the drain worker's behaviour.
+ *
+ * Throws on SMTP failure (after recording FAILED) - callers treat this
+ * as best-effort and must never fail the request because of it.
+ */
+export async function deliverNotificationNow(params: {
+  applicationId: string;
+  email: string;
+  fullName: string;
+  type: "STATUS_CHANGE" | "SUBMISSION_RECEIPT";
+  subject: string;
+  text: string;
+}): Promise<void> {
+  if (getMailProvider() === "sandbox") {
+    await recordNotificationDelivery({
+      applicationId: params.applicationId,
+      email: params.email,
+      fullName: params.fullName,
+      type: params.type,
+      subject: params.subject,
+      body: params.text,
+      delivered: true,
+    });
+    return;
+  }
+  try {
+    await sendMail({
+      to: params.email,
+      subject: params.subject,
+      text: params.text,
+    });
+    await recordNotificationDelivery({
+      applicationId: params.applicationId,
+      email: params.email,
+      fullName: params.fullName,
+      type: params.type,
+      subject: params.subject,
+      body: params.text,
+      delivered: true,
+    });
+  } catch (err) {
+    const reason = `smtp: ${err instanceof Error ? err.message : "delivery error"}`;
+    try {
+      await recordNotificationDelivery({
+        applicationId: params.applicationId,
+        email: params.email,
+        fullName: params.fullName,
+        type: params.type,
+        subject: params.subject,
+        body: params.text,
+        delivered: false,
+        lastError: reason,
+      });
+    } catch (recordErr) {
+      console.error("[mailer] delivery audit record failed:", recordErr);
+    }
+    throw err;
+  }
 }
 
 /** Terminal-flavoured HTML wrapper so SMTP mail renders branded. */

@@ -4,9 +4,9 @@ import { getAdminSession } from "@/lib/admin";
 import { isApplicationStatus, isInterviewMode, getStatusMeta } from "@/lib/status";
 import {
   updateApplicationStatus,
-  queueNotification,
   findInterviewConflicts,
 } from "@/lib/storage";
+import { deliverNotificationNow } from "@/lib/mailer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,8 +26,8 @@ const patchSchema = z.object({
  * PATCH /api/admin/applications/[id]
  * Allowlist-gated review action: advance the application's status,
  * optionally attaching a note (interview slot, feedback, message to
- * student…). Every commit also queues an email notification in the outbox
- * (StatusNotification) for the delivery worker to drain.
+ * student…). Every commit also emails the student directly over SMTP
+ * (recorded SENT/FAILED in the outbox for history - never QUEUED).
  */
 export async function PATCH(
   req: NextRequest,
@@ -107,7 +107,7 @@ export async function PATCH(
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
     }
 
-    // Queue the student-facing email (worker drains the outbox later).
+    // Direct delivery: the student gets the email over SMTP right away.
     // Best-effort: a notification failure must never block the review action.
     try {
       const meta = getStatusMeta(parsed.data.status);
@@ -134,16 +134,16 @@ export async function PATCH(
         );
       }
       parts.push("", "- NEXUS core team · VIT Chennai", "https://nexus.runs-on.dev");
-      await queueNotification({
+      await deliverNotificationNow({
         applicationId: updated.id,
         email: updated.email,
         fullName: updated.fullName,
         type: "STATUS_CHANGE",
         subject: `[NEXUS '26] Application update - ${meta.label}`,
-        body: parts.join("\n"),
+        text: parts.join("\n"),
       });
     } catch (notifyErr) {
-      console.error("[api/admin/applications/:id] notification queue failed:", notifyErr);
+      console.error("[api/admin/applications/:id] notification delivery failed:", notifyErr);
     }
 
     return NextResponse.json({ application: updated });

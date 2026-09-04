@@ -58,9 +58,10 @@ model Application {
   @@map("applications")
 }
 
-// Outbox for status-change notifications. The PATCH admin route queues rows
-// here; a worker (Resend / Supabase Edge Function / cron) drains the queue in
-// production by claiming QUEUED rows and marking them SENT.
+// Outbox for notifications. Submission receipts and review actions are
+// emailed directly and recorded here as SENT/FAILED; CUSTOM and
+// DRAFT_REMINDER rows still queue as QUEUED for the drain worker
+// (Resend / Supabase Edge Function / cron) to deliver.
 model StatusNotification {
   id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   applicationId String    @map("application_id")

@@ -697,6 +697,61 @@ export async function queueNotification(params: {
   });
 }
 
+/**
+ * Direct-delivery audit: insert a notification row already resolved as
+ * SENT or FAILED. Used by flows that email immediately (submission
+ * receipts, review actions) instead of queueing - nothing lands in
+ * QUEUED, so no drain/FLUSH_QUEUE step is needed. The outbox panel
+ * still lists the row as history.
+ */
+export async function recordNotificationDelivery(params: {
+  applicationId: string;
+  email: string;
+  fullName: string;
+  type: "STATUS_CHANGE" | "SUBMISSION_RECEIPT" | "DRAFT_REMINDER" | "CUSTOM";
+  subject: string;
+  body: string;
+  delivered: boolean;
+  lastError?: string | null;
+}): Promise<void> {
+  const status = params.delivered ? "SENT" : "FAILED";
+  const now = new Date();
+  const lastError = params.delivered
+    ? null
+    : (params.lastError ?? "delivery failed").slice(0, 300);
+  if (isSupabaseConfigured) {
+    const supabase = getSupabaseAdmin();
+    if (supabase) {
+      const { error } = await supabase.from(SUPABASE_TABLES.notifications).insert({
+        application_id: params.applicationId,
+        email: params.email,
+        full_name: params.fullName,
+        type: params.type,
+        subject: params.subject,
+        body: params.body,
+        status,
+        last_error: lastError,
+        sent_at: params.delivered ? now.toISOString() : null,
+      });
+      if (error) throw new Error(`Supabase record failed: ${error.message}`);
+      return;
+    }
+  }
+  await db.statusNotification.create({
+    data: {
+      applicationId: params.applicationId,
+      email: params.email,
+      fullName: params.fullName,
+      type: params.type,
+      subject: params.subject,
+      body: params.body,
+      status,
+      lastError,
+      sentAt: params.delivered ? now : null,
+    },
+  });
+}
+
 export async function listNotifications(
   take = 50
 ): Promise<{ items: NotificationRecord[]; queued: number }> {
