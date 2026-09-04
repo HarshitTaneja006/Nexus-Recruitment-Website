@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/admin/applications?department=&status=&q=&order=
+ * GET /api/admin/applications?department=&status=&year=&q=&order=
  * Allowlist-gated listing for the review console.
  */
 export async function GET(req: NextRequest) {
@@ -20,6 +20,11 @@ export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams;
   const department = params.get("department") ?? "";
   const statusParam = params.get("status") ?? "";
+  const yearParam = Number(params.get("year") ?? "");
+  const year =
+    Number.isInteger(yearParam) && yearParam >= 1 && yearParam <= 5
+      ? yearParam
+      : undefined;
   const q = params.get("q")?.trim() ?? "";
   const orderParam = params.get("order");
   const order =
@@ -32,6 +37,7 @@ export async function GET(req: NextRequest) {
       listApplications({
         department: getDepartment(department) ? department : undefined,
         status: isApplicationStatus(statusParam) ? statusParam : undefined,
+        year,
         q: q || undefined,
         order,
       }),

@@ -112,6 +112,7 @@ export function AdminDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [department, setDepartment] = useState<string>("");
   const [status, setStatus] = useState<string>("");
+  const [year, setYear] = useState<string>("");
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [order, setOrder] = useState<SortKey>("newest");
@@ -129,6 +130,7 @@ export function AdminDashboard() {
         const params = new URLSearchParams();
         if (department) params.set("department", department);
         if (status) params.set("status", status);
+        if (year) params.set("year", year);
         if (debouncedQuery) params.set("q", debouncedQuery);
         if (order !== "newest") params.set("order", order);
         const res = await fetch(`/api/admin/applications?${params}`, {
@@ -150,7 +152,7 @@ export function AdminDashboard() {
         setRefreshing(false);
       }
     },
-    [department, status, debouncedQuery, order]
+    [department, status, year, debouncedQuery, order]
   );
 
   useEffect(() => {
@@ -169,7 +171,7 @@ export function AdminDashboard() {
   // any filter/order change sends the reader back to page one
   useEffect(() => {
     setPage(0);
-  }, [department, status, debouncedQuery, order]);
+  }, [department, status, year, debouncedQuery, order]);
 
   // auto-refresh every 30s
   useEffect(() => {
@@ -217,7 +219,7 @@ export function AdminDashboard() {
   // keep the selection honest when the filter/page changes
   useEffect(() => {
     setSelectedIds((prev) => prev.filter((id) => apps.some((a) => a.id === id)));
-  }, [department, status, debouncedQuery, order, safePage]);
+  }, [department, status, year, debouncedQuery, order, safePage]);
 
   /** Optimistically patch one application across every copy we hold. */
   const patchApplication = useCallback((updated: ApplicationRecord) => {
@@ -240,11 +242,12 @@ export function AdminDashboard() {
     const params = new URLSearchParams();
     if (department) params.set("department", department);
     if (status) params.set("status", status);
+    if (year) params.set("year", year);
     if (debouncedQuery) params.set("q", debouncedQuery);
     if (order !== "newest") params.set("order", order);
     const qs = params.toString();
     return `/api/admin/applications/export${qs ? `?${qs}` : ""}`;
-  }, [department, status, debouncedQuery, order]);
+  }, [department, status, year, debouncedQuery, order]);
 
   // "/" anywhere in the console jumps to the grep box
   const searchRef = useRef<HTMLInputElement | null>(null);
@@ -521,6 +524,26 @@ export function AdminDashboard() {
             />
           );
         })}
+      </section>
+
+      {/* year filter row */}
+      <section
+        className="mt-2 flex flex-wrap items-center gap-1.5"
+        role="group"
+        aria-label="Year of study filter"
+      >
+        <span className="mr-1 font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground/60">
+          year:
+        </span>
+        <FilterChip active={!year} onClick={() => setYear("")} label="ANY" />
+        {[1, 2, 3, 4, 5].map((y) => (
+          <FilterChip
+            key={y}
+            active={year === String(y)}
+            onClick={() => setYear(year === String(y) ? "" : String(y))}
+            label={formatYearOfStudy(y).toUpperCase()}
+          />
+        ))}
       </section>
 
       {/* results */}

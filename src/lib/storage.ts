@@ -475,6 +475,8 @@ export async function getDriveStats(): Promise<DriveStats> {
 export interface ListOptions {
   department?: string;
   status?: string;
+  /** 1..5 - year of study */
+  year?: number;
   q?: string;
   order?: "newest" | "oldest" | "name";
 }
@@ -556,6 +558,7 @@ export async function listApplications(opts: ListOptions = {}): Promise<Applicat
         .limit(500);
       if (opts.department) query = query.eq("department", opts.department);
       if (opts.status) query = query.eq("status", opts.status);
+      if (opts.year) query = query.eq("year_of_study", opts.year);
       if (opts.q) {
         const like = `%${opts.q}%`;
         query = query.or(`full_name.ilike.${like},email.ilike.${like}`);
@@ -577,6 +580,7 @@ export async function listApplications(opts: ListOptions = {}): Promise<Applicat
   const where: Record<string, unknown> = {};
   if (opts.department) where.department = opts.department;
   if (opts.status) where.status = opts.status;
+  if (opts.year) where.yearOfStudy = opts.year;
   if (opts.q) {
     where.OR = [
       { email: { contains: opts.q } },
