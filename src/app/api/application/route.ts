@@ -120,6 +120,9 @@ export async function POST(req: NextRequest) {
         "",
         "You can edit and re-submit any time before the deadline - the new version overwrites this one.",
         "",
+        "Not seeing our mails? Check spam / promotions and mark them not spam -",
+        "interview slots and every update reach you by mail only.",
+        "",
         "- NEXUS core team · VIT Chennai",
         "https://nexus.runs-on.dev",
       ];

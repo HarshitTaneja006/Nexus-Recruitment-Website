@@ -11,6 +11,7 @@ import {
   FileEdit,
   History,
   Home,
+  Mail,
   MessageCircle,
   MessageSquareQuote,
   Printer,
@@ -149,6 +150,24 @@ export function SubmittedView({
             Your transmission reached <span className="text-primary">d {dept?.dir}/</span> - domain
             leads have it in their review queue.
           </p>
+
+          <div
+            className="mx-auto mt-5 max-w-md border border-warn/50 bg-warn/10 px-4 py-3 text-left"
+            role="note"
+            aria-label="Email confirmation notice"
+          >
+            <p className="flex items-center gap-1.5 font-mono text-[10px] font-bold tracking-[0.2em] text-warn">
+              <Mail className="h-3.5 w-3.5" aria-hidden="true" />
+              CHECK_YOUR_GMAIL
+            </p>
+            <p className="mt-1.5 font-sans text-xs leading-relaxed text-foreground/90">
+              A confirmation mail is on its way to{" "}
+              <span className="font-mono text-foreground">{application.email}</span>. Not in
+              your inbox? Check spam / promotions, then mark it{" "}
+              <span className="font-semibold">not spam</span> - interview slots and every
+              update reach you by mail only.
+            </p>
+          </div>
 
           <dl className="mx-auto mt-6 grid max-w-md gap-px border border-border bg-border text-left">
             {[
