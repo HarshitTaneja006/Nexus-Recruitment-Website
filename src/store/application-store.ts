@@ -8,8 +8,8 @@ import { EMPTY_LINKS, type Links } from "@/lib/departments";
  * Application draft store.
  *
  * The browser holds the primary copy (localStorage via zustand/persist),
- * mirrored to the server periodically. If anything goes wrong client-side —
- * tab crash, refresh, accidental close, laptop death — the student's
+ * mirrored to the server periodically. If anything goes wrong client-side -
+ * tab crash, refresh, accidental close, laptop death - the student's
  * answers survive and are restored automatically.
  */
 

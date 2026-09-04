@@ -18,7 +18,7 @@ import { getDepartment } from "@/lib/departments";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** GET /api/application — the signed-in student's submitted application. */
+/** GET /api/application - the signed-in student's submitted application. */
 export async function GET() {
   const session = await getAuthSession();
   if (!session?.user?.email) {
@@ -32,7 +32,7 @@ export async function GET() {
   return NextResponse.json({ application });
 }
 
-/** POST /api/application — submit (or re-submit before deadline) the form. */
+/** POST /api/application - submit (or re-submit before deadline) the form. */
 export async function POST(req: NextRequest) {
   const session = await getAuthSession();
   if (!session?.user?.email) {
@@ -100,14 +100,14 @@ export async function POST(req: NextRequest) {
       input: { ...parsed.data, whatsapp },
     });
 
-    // Queue the submission receipt (outbox worker delivers it — SMTP when
+    // Queue the submission receipt (outbox worker delivers it - SMTP when
     // SMTP_HOST is set). Best-effort: never blocks the 201.
     try {
       const dept = getDepartment(department);
       const lines = [
         `Hi ${application.fullName},`,
         "",
-        `Your NEXUS Recruitments '26 application is in — domain d ${dept?.dir ?? department}/ (${dept?.name ?? department}).`,
+        `Your NEXUS Recruitments '26 application is in - domain d ${dept?.dir ?? department}/ (${dept?.name ?? department}).`,
         "",
         `  APP_ID     ${application.id}`,
         `  SUBMITTED  ${new Date(application.submittedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })} IST`,
@@ -115,12 +115,12 @@ export async function POST(req: NextRequest) {
         "",
         "What happens next:",
         "  1. Domain leads review every submission against depth and honesty.",
-        "  2. Your live status appears on the application page (/apply) the moment it changes — SUBMITTED → SHORTLISTED → decision.",
+        "  2. Your live status appears on the application page (/apply) the moment it changes - SUBMITTED → SHORTLISTED → decision.",
         "  3. Any note from the core team lands in your inbox AND on your status page.",
         "",
-        "You can edit and re-submit any time before the deadline — the new version overwrites this one.",
+        "You can edit and re-submit any time before the deadline - the new version overwrites this one.",
         "",
-        "— NEXUS core team · VIT Chennai",
+        "- NEXUS core team · VIT Chennai",
         "https://nexus.runs-on.dev",
       ];
       await queueNotification({
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
         email: application.email,
         fullName: application.fullName,
         type: "SUBMISSION_RECEIPT",
-        subject: `[NEXUS '26] Application received — d ${dept?.dir ?? department}/`,
+        subject: `[NEXUS '26] Application received - d ${dept?.dir ?? department}/`,
         body: lines.join("\n"),
       });
     } catch (notifyErr) {
@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("[api/application] submit failed:", err);
     return NextResponse.json(
-      { error: "SERVER_ERROR", message: "Could not save your application. Your answers are safe — try again." },
+      { error: "SERVER_ERROR", message: "Could not save your application. Your answers are safe - try again." },
       { status: 500 }
     );
   }

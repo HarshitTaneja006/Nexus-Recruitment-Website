@@ -79,7 +79,7 @@ export function SignInGate({
             <>
               The <span className="text-foreground">review console</span> is
               restricted to allowlisted core-team emails. Sign in with your VIT
-              student Google account — access is checked against{" "}
+              student Google account - access is checked against{" "}
               <span className="font-mono text-foreground">ADMIN_EMAILS</span>.
             </>
           ) : (
@@ -89,7 +89,7 @@ export function SignInGate({
               Your <span className="text-foreground">name</span>,{" "}
               <span className="text-foreground">year of study</span> and{" "}
               <span className="text-foreground">email</span> are derived
-              automatically from your email — you never type them.
+              automatically from your email - you never type them.
             </>
           )}
         </p>
@@ -102,19 +102,19 @@ export function SignInGate({
           <div className="mt-3 grid gap-2 font-mono text-xs sm:grid-cols-3">
             {(
               [
-                ["NAME", typeof parsed === "object" && parsed ? parsed.fullName : "———"],
+                ["NAME", typeof parsed === "object" && parsed ? parsed.fullName : "---"],
                 [
                   "YEAR",
-                  typeof parsed === "object" && parsed ? `${parsed.yearOfStudy}${ordinalSuffix(parsed.yearOfStudy)}` : "———",
+                  typeof parsed === "object" && parsed ? `${parsed.yearOfStudy}${ordinalSuffix(parsed.yearOfStudy)}` : "---",
                 ],
-                ["EMAIL", typeof parsed === "object" && parsed ? parsed.email : "———"],
+                ["EMAIL", typeof parsed === "object" && parsed ? parsed.email : "---"],
               ] as const
             ).map(([label, value]) => (
               <div key={label} className="border border-border bg-background/60 px-3 py-2">
                 <p className="text-[9px] uppercase tracking-[0.2em] text-muted-foreground">
                   {label}
                 </p>
-                <p className={cn("mt-1 truncate", value === "———" ? "text-muted-foreground/50" : "text-primary")}>
+                <p className={cn("mt-1 truncate", value === "---" ? "text-muted-foreground/50" : "text-primary")}>
                   {value}
                 </p>
               </div>
@@ -193,7 +193,7 @@ export function SignInGate({
               >
                 {parsed === false
                   ? "✗ does not match firstname.lastnameYYYY@vitstudent.ac.in"
-                  : "ℹ sandbox mode simulates Google OAuth locally — production uses real Google sign-in."}
+                  : "ℹ sandbox mode simulates Google OAuth locally - production uses real Google sign-in."}
               </p>
             </div>
           </div>

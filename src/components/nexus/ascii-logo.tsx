@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * ANSI-shadow lettering. NOTE: the S is the real ANSI-shadow S (middle bar +
- * lower-right stub) — using the E glyph there rendered the wordmark as
+ * lower-right stub) - using the E glyph there rendered the wordmark as
  * "NEXUE", which is exactly what it looked like.
  */
 export const NEXUS_ASCII = String.raw`███╗   ██╗███████╗██╗   ██╗██╗   ██╗███████╗

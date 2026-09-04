@@ -1,5 +1,5 @@
 -- ============================================================
--- NEXUS Recruitments — Supabase schema (Production Ready)
+-- NEXUS Recruitments - Supabase schema (Production Ready)
 -- Run this once in the Supabase SQL editor, then set env vars:
 --   NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 -- When configured, the app persists applications & drafts here

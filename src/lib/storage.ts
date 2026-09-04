@@ -7,7 +7,7 @@ import type { StatusEvent } from "@/lib/status";
 import { parseStatusHistory } from "@/lib/status";
 
 /**
- * Storage layer — Prisma (local SQLite) by default, Supabase when configured.
+ * Storage layer - Prisma (local SQLite) by default, Supabase when configured.
  * The rest of the app only calls these functions, so switching backends
  * requires zero changes elsewhere.
  */
@@ -65,11 +65,11 @@ export interface DriveStats {
   byDepartmentStatus: Record<string, Record<string, number>>;
   /** joining-year cohort → count (public-safe aggregate, e.g. "2024" → 3) */
   byJoinYear: Record<string, number>;
-  /** applications submitted in the trailing 24h — drive velocity */
+  /** applications submitted in the trailing 24h - drive velocity */
   last24h: number;
   /** day-bucket submission counts for the trailing window, IST days, oldest → newest */
   timeline: Array<{ date: string; count: number }>;
-  /** same day-buckets, per department — powers the /stats domain filter */
+  /** same day-buckets, per department - powers the /stats domain filter */
   timelineByDept: Record<string, Array<{ date: string; count: number }>>;
   generatedAt: string;
 }
@@ -88,7 +88,7 @@ export async function resolveUserId(email: string, name?: string): Promise<strin
   return user.id;
 }
 
-/** Best-effort lookup — null when the user has never signed in. */
+/** Best-effort lookup - null when the user has never signed in. */
 export async function lookupUserId(email: string): Promise<string | null> {
   const user = await db.user.findUnique({ where: { email } });
   return user?.id ?? null;
@@ -157,7 +157,7 @@ export async function submitApplication(params: {
   return mapApplicationRow(saved);
 }
 
-/** Admin review action — move an application along the status pipeline. */
+/** Admin review action - move an application along the status pipeline. */
 export async function updateApplicationStatus(params: {
   id: string;
   status: string;
@@ -481,7 +481,7 @@ export interface ListOptions {
 
 /**
  * Other applications holding an interview slot within ±windowMinutes of the
- * given slot — powers the "one panel, no overlaps" conflict warning. Only
+ * given slot - powers the "one panel, no overlaps" conflict warning. Only
  * applications currently parked on status=INTERVIEW count (an accepted or
  * rejected file with an old slot is not a conflict).
  */
@@ -756,7 +756,7 @@ export async function listQueuedNotifications(limit = 25): Promise<NotificationR
   return rows.map((n) => mapNotificationRow(n as unknown as Record<string, unknown>));
 }
 
-/** Drain worker outcome: a row failed delivery — keep it + the provider reason. */
+/** Drain worker outcome: a row failed delivery - keep it + the provider reason. */
 export async function markNotificationFailed(id: string, reason: string): Promise<void> {
   const trimmed = reason.slice(0, 300);
   if (isSupabaseConfigured) {
@@ -861,13 +861,13 @@ export async function setSetting(key: SettingKey, value: string): Promise<void> 
   });
 }
 
-/** Public stats console flag — disabled ("0") unless core explicitly unlocks it. */
+/** Public stats console flag - disabled ("0") unless core explicitly unlocks it. */
 export async function isStatsPublic(): Promise<boolean> {
   return (await getSetting("stats_public")) === "1";
 }
 
 /* ------------------------------------------------------------------ */
-/* Draft reminders — students with progress but no submission          */
+/* Draft reminders - students with progress but no submission          */
 /* ------------------------------------------------------------------ */
 
 export interface DraftReminderCandidate {

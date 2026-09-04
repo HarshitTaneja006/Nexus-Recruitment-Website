@@ -24,7 +24,7 @@ const DEPT_BAR_COLORS: Record<string, string> = {
 
 const REFRESH_MS = 20_000;
 
-/** rAF count-up — animates 0→value once per mount; value changes snap. */
+/** rAF count-up - animates 0→value once per mount; value changes snap. */
 function useCountUp(value: number, duration = 900): number {
   const [display, setDisplay] = useState(0);
   const raf = useRef<number | null>(null);
@@ -240,7 +240,7 @@ function DeptStack({
           ))}
         {deptTotal === 0 ? (
           <span className="text-[9px] tracking-widest text-muted-foreground/60">
-            empty — be the first
+            empty - be the first
           </span>
         ) : null}
       </div>
@@ -313,7 +313,7 @@ function buildBrief(opts: {
 
   const lines: string[] = [];
   lines.push(
-    `\u25c8 NEXUS RECRUITMENTS '26 — LIVE FUNNEL · ${deptFilter ? `d ${scopedDeptDir}/` : "ALL DOMAINS"} · no PII`
+    `\u25c8 NEXUS RECRUITMENTS '26 - LIVE FUNNEL · ${deptFilter ? `d ${scopedDeptDir}/` : "ALL DOMAINS"} · no PII`
   );
   lines.push(
     `  drive ${open ? "OPEN" : "CLOSED"} · closes 24 Sep 2026 23:59 IST · ${tMinus}`
@@ -372,7 +372,7 @@ function ScopeChip({
   );
 }
 
-/** Day-by-day submission velocity — block-glyph sparkline (desktop) / CSS bars (mobile). */
+/** Day-by-day submission velocity - block-glyph sparkline (desktop) / CSS bars (mobile). */
 function SubmissionSparkline({
   timeline,
   scope,
@@ -397,8 +397,8 @@ function SubmissionSparkline({
     });
   };
 
-  const firstLabel = timeline.length > 0 ? fmtDay(timeline[0].date) : "—";
-  const lastLabel = timeline.length > 0 ? fmtDay(timeline[timeline.length - 1].date) : "—";
+  const firstLabel = timeline.length > 0 ? fmtDay(timeline[0].date) : "-";
+  const lastLabel = timeline.length > 0 ? fmtDay(timeline[timeline.length - 1].date) : "-";
   const wow = wowDelta(timeline);
   const wowLabel =
     wow > 0 ? `\u25b2 +${wow} / 7d` : wow < 0 ? `\u25bc ${wow} / 7d` : "\u00b7 flat / 7d";
@@ -489,7 +489,7 @@ function SubmissionSparkline({
         <span className="hidden sm:inline">hover a glyph for the day count</span>
         <span>
           {lastLabel}
-          {hasData ? " · today →" : " · flat — share the form!"}
+          {hasData ? " · today →" : " · flat - share the form!"}
         </span>
       </div>
     </section>
@@ -686,7 +686,7 @@ export function StatsView() {
       ?.writeText(brief)
       .then(() =>
         toast.success("BRIEF_COPIED", {
-          description: "plain-text funnel brief — paste it in the group chat.",
+          description: "plain-text funnel brief - paste it in the group chat.",
         })
       )
       .catch(() => toast.error("CLIPBOARD_BLOCKED", { description: "brief could not be copied" }));
@@ -789,7 +789,7 @@ export function StatsView() {
               label="LAST 24 HOURS"
               value={last24hCount}
               accent="text-emerald-400"
-              hint="applications submitted in the trailing 24h — drive velocity"
+              hint="applications submitted in the trailing 24h - drive velocity"
             />
             <KpiCell
               icon={<Activity className="h-3 w-3" aria-hidden="true" />}
@@ -804,7 +804,7 @@ export function StatsView() {
               value={acceptRate}
               suffix="%"
               accent="text-fuchsia-400"
-              hint={`${accepted} accepted of ${total} — decisions so far`}
+              hint={`${accepted} accepted of ${total} - decisions so far`}
             />
           </div>
 
@@ -842,7 +842,7 @@ export function StatsView() {
                 })}
               </ol>
               <p className="mt-4 border-t border-border/60 pt-3 text-[9px] leading-relaxed text-muted-foreground/70">
-                stages overlap by design — an application sits in exactly one status,
+                stages overlap by design - an application sits in exactly one status,
                 the funnel shows where the collective's attention is right now.
               </p>
             </section>
@@ -884,12 +884,12 @@ export function StatsView() {
               <p className="mt-4 border-t border-border/60 pt-3 text-[9px] leading-relaxed text-muted-foreground/70">
                 {open ? (
                   <>
-                    drive is <span className="text-primary">OPEN</span> — counts move as
+                    drive is <span className="text-primary">OPEN</span> - counts move as
                     the core team reviews.{" "}
                   </>
                 ) : (
                   <>
-                    drive is <span className="text-destructive">CLOSED</span> — these are
+                    drive is <span className="text-destructive">CLOSED</span> - these are
                     the final numbers for this cycle.{" "}
                   </>
                 )}
@@ -929,7 +929,7 @@ export function StatsView() {
             </div>
           ) : null}
 
-          {/* cohort mix — drive-wide aggregate, so only meaningful unscoped */}
+          {/* cohort mix - drive-wide aggregate, so only meaningful unscoped */}
           {!deptFilter && cohort.length > 0 ? (
             <section className="mt-6" aria-label="Cohort mix by joining year">
               <p className="text-[9px] uppercase tracking-[0.25em] text-muted-foreground">
@@ -971,10 +971,10 @@ export function StatsView() {
 
           {/* privacy footnote */}
           <p className="mt-8 border border-border/60 bg-secondary/20 px-4 py-3 text-[9px] leading-relaxed text-muted-foreground/70">
-            privacy: this page renders aggregates only — no names, emails or answers
+            privacy: this page renders aggregates only - no names, emails or answers
             ever leave the review console. the same numbers the core team sees, minus
             the people.
-            {deptFilter ? " cohort mix is a drive-wide aggregate — it hides while a domain is focused." : ""}
+            {deptFilter ? " cohort mix is a drive-wide aggregate - it hides while a domain is focused." : ""}
           </p>
         </>
       )}

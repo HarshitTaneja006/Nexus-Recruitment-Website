@@ -12,15 +12,15 @@ import { DRIVE_DEADLINE } from "@/lib/drive";
 const FAQS = [
   {
     q: "Who can apply?",
-    a: "Any VIT Chennai student with an active vitstudent.ac.in email. Your sign-in email must match the pattern firstname.lastnameYYYY@vitstudent.ac.in — every year is welcome, from freshers to final-years.",
+    a: "Any VIT Chennai student with an active vitstudent.ac.in email. Your sign-in email must match the pattern firstname.lastnameYYYY@vitstudent.ac.in - every year is welcome, from freshers to final-years.",
   },
   {
     q: "Why do I only see my email, name and year pre-filled?",
-    a: "Because identity is derived from your email, not typed by hand. We parse firstname.lastnameYYYY from your VIT email to build your name and year of study — fewer typos, no fake identities, faster review.",
+    a: "Because identity is derived from your email, not typed by hand. We parse firstname.lastnameYYYY from your VIT email to build your name and year of study - fewer typos, no fake identities, faster review.",
   },
   {
     q: "Can I apply to more than one department?",
-    a: "One application, one department — depth beats breadth. Pick the domain you'd actually grind in. If you have a strong secondary interest, mention it inside your answers; cross-domain collaborators are loved.",
+    a: "One application, one department - depth beats breadth. Pick the domain you'd actually grind in. If you have a strong secondary interest, mention it inside your answers; cross-domain collaborators are loved.",
   },
   {
     q: "What if my browser crashes mid-form?",
@@ -28,11 +28,11 @@ const FAQS = [
   },
   {
     q: "What happens after I submit?",
-    a: "Your status goes to PENDING_REVIEW. Domain leads screen every answer, shortlisted builders get an interview call, and results roll out before onboarding. You'll see your application ID on submission — quote it in any queries.",
+    a: "Your status goes to PENDING_REVIEW. Domain leads screen every answer, shortlisted builders get an interview call, and results roll out before onboarding. You'll see your application ID on submission - quote it in any queries.",
   },
   {
     q: "Can I edit my application after submitting?",
-    a: `Yes — until the drive closes on ${DRIVE_DEADLINE.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} at 23:59 IST. Re-open the form, update your answers and re-submit; the new version overwrites the old one.`,
+    a: `Yes - until the drive closes on ${DRIVE_DEADLINE.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} at 23:59 IST. Re-open the form, update your answers and re-submit; the new version overwrites the old one.`,
   },
 ];
 

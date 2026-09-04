@@ -40,7 +40,7 @@ export function SiteFooter() {
                   href="/#departments"
                   className="text-muted-foreground transition-colors hover:text-accent-foreground"
                 >
-                  d {d.dir}/ <span className="text-muted-foreground/50">— {d.name}</span>
+                  d {d.dir}/ <span className="text-muted-foreground/50">- {d.name}</span>
                 </Link>
               </li>
             ))}
@@ -88,7 +88,7 @@ export function SiteFooter() {
 
       <div className="border-t border-border/60">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-2 px-4 py-4 font-mono text-[10px] text-muted-foreground sm:flex-row sm:px-6">
-          <span>© 2026 NEXUS — VIT CHENNAI. ALL PROCESSING LOCAL.</span>
+          <span>© 2026 NEXUS - VIT CHENNAI. ALL PROCESSING LOCAL.</span>
           <span>
             BUILD:{" "}
             <span className="text-primary">{DRIVE.label}</span> · CYCLE {DRIVE.cycle}

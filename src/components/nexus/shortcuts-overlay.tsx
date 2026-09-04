@@ -40,7 +40,7 @@ function isTypingTarget(el: EventTarget | null): boolean {
 }
 
 /**
- * NEXUS keyboard man page — press ? anywhere (or `man nexus_keys` in the
+ * NEXUS keyboard man page - press ? anywhere (or `man nexus_keys` in the
  * palette) to read it. Also owns the vim-style `g <key>` quick-nav: the
  * sequence fires when the second key lands within GOTO_MS of the first.
  */

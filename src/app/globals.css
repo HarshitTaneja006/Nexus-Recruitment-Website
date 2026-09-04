@@ -46,7 +46,7 @@
 }
 
 /*
- * NEXUS terminal theme — palette lifted from nexus.runs-on.dev:
+ * NEXUS terminal theme - palette lifted from nexus.runs-on.dev:
  * near-black navy background (#05080d), phosphor blue accents (#60a5fa),
  * traffic-light red (#ff5f57), phosphor green status (#4ade80).
  * Sharp corners (radius 0) for the authentic terminal feel.
@@ -170,7 +170,7 @@
   text-shadow: 0 0 12px rgba(96, 165, 250, 0.3);
 }
 
-/* /stats submission sparkline — per-day glyphs light up under the cursor */
+/* /stats submission sparkline - per-day glyphs light up under the cursor */
 .spark-glyph {
   cursor: crosshair;
 }
@@ -307,7 +307,7 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Print — Ctrl+P on /apply gives students a clean paper receipt:      */
+/* Print - Ctrl+P on /apply gives students a clean paper receipt:      */
 /* chrome (header/footer/overlay/buttons) drops out, panels go light.  */
 /* ------------------------------------------------------------------ */
 @media print {
@@ -357,7 +357,7 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Landing dept cards — accent-tinted hover via --dept-accent hex      */
+/* Landing dept cards - accent-tinted hover via --dept-accent hex      */
 /* (set inline from lib/departments so OG images and CSS never drift)  */
 /* ------------------------------------------------------------------ */
 .dept-card:hover {
@@ -370,14 +370,14 @@
   color: color-mix(in srgb, var(--dept-accent) 65%, transparent);
 }
 
-/* Interview-sheet print masthead — screen:none, paper:terminal block */
+/* Interview-sheet print masthead - screen:none, paper:terminal block */
 .nx-print-only {
   display: none;
 }
 
 @media print {
   /* INTERVIEW SHEET mode: body.print-detail is set while the review
-     DetailDialog calls window.print() — only the dialog hits the paper. */
+     DetailDialog calls window.print() - only the dialog hits the paper. */
   body.print-detail > *:not([data-nx-print-keep]) {
     display: none !important;
   }
@@ -391,7 +391,7 @@
     right: auto !important;
     bottom: auto !important;
     /* LightningCSS drops explicit `translate:` values as redundant next to
-       transform:none — so neutralize the Tailwind translate utility at the
+       transform:none - so neutralize the Tailwind translate utility at the
        custom-property level instead (translate: var(--tw-translate-x) ...) */
     --tw-translate-x: 0 !important;
     --tw-translate-y: 0 !important;

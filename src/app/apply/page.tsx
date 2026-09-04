@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "INITIATE_APPLICATION // NEXUS Recruitments '26",
   description:
-    "Sign in with your VIT student email and submit your application to NEXUS — Technical, Management or Design and Social Media.",
+    "Sign in with your VIT student email and submit your application to NEXUS - Technical, Management or Design and Social Media.",
 };
 
 export default async function ApplyPage() {
@@ -29,7 +29,7 @@ export default async function ApplyPage() {
     return <NonVitPanel email={email} />;
   }
 
-  // 3. Core team has no business applying — redirect their energy
+  // 3. Core team has no business applying - redirect their energy
   if (isAdminEmail(email)) {
     return <AdminBlockedApply />;
   }

@@ -6,13 +6,13 @@ const STEPS = [
     num: "01",
     cmd: "./apply",
     title: "Authenticate & Compile Answers",
-    body: "Sign in with Google using your VIT email (firstname.lastnameYYYY@vitstudent.ac.in). Name, year and email are derived automatically — you just pick a department, drop your WhatsApp number and answer.",
+    body: "Sign in with Google using your VIT email (firstname.lastnameYYYY@vitstudent.ac.in). Name, year and email are derived automatically - you just pick a department, drop your WhatsApp number and answer.",
   },
   {
     num: "02",
     cmd: "./screen",
     title: "Department Review",
-    body: "Department leads read every submission against your answers' depth, honesty and signal. Drafts save themselves — polish until the deadline.",
+    body: "Department leads read every submission against your answers' depth, honesty and signal. Drafts save themselves - polish until the deadline.",
   },
   {
     num: "03",
@@ -46,7 +46,7 @@ export function Process() {
               How the drive <span className="text-primary glow-soft">executes</span>
             </>
           }
-          subtitle={`Applications close ${deadlineLabel} at 23:59 IST. The pipeline runs exactly as advertised — no ghosting, no black holes.`}
+          subtitle={`Applications close ${deadlineLabel} at 23:59 IST. The pipeline runs exactly as advertised - no ghosting, no black holes.`}
         />
 
         <ol className="relative grid gap-4 md:grid-cols-2 xl:grid-cols-4">

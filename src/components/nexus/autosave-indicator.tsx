@@ -50,7 +50,7 @@ export function AutosaveIndicator({
           <Cloud className="h-3.5 w-3.5 text-ok" aria-hidden="true" />
           <span className="ok-text">DRAFT_SAVED</span>
           <span suppressHydrationWarning>
-            local {time(localAt) ?? "—"}
+            local {time(localAt) ?? "-"}
             {serverAt ? ` · server ${time(serverAt)}` : ""}
           </span>
         </>

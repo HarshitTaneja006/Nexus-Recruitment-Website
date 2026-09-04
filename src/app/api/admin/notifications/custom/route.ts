@@ -19,7 +19,7 @@ const bodySchema = z.object({
 });
 
 /**
- * POST /api/admin/notifications/custom — compose + queue a custom email to
+ * POST /api/admin/notifications/custom - compose + queue a custom email to
  * the selected applicants from the review console. Template variables are
  * merged per student: {{name}} {{domain}} {{status}} {{year}}.
  * Rows land in the outbox as type=CUSTOM; FLUSH_QUEUE delivers via SMTP.
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
           .replaceAll("{{domain}}", getDepartmentName(app.department))
           .replaceAll("{{status}}", getStatusLabel(app.status))
           .replaceAll("{{year}}", String(app.yearOfStudy))
-          .replaceAll("{{whatsapp}}", app.whatsapp || "—");
+          .replaceAll("{{whatsapp}}", app.whatsapp || "-");
 
       await queueNotification({
         applicationId: app.id,
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
           "",
           merge(message),
           "",
-          "— NEXUS core team · VIT Chennai",
+          "- NEXUS core team · VIT Chennai",
           "https://nexus.runs-on.dev",
         ].join("\n"),
       });

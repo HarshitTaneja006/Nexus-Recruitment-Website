@@ -9,7 +9,7 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 /**
- * GET /api/og/dept/[id] — per-department share card for the landing page's
+ * GET /api/og/dept/[id] - per-department share card for the landing page's
  * domain directories (wired through generateMetadata when /?dept=<id> is
  * shared). Terminal dossier: accent-tinted headline, stack tags, live load
  * count from the drive stats. Aggregates only, zero PII.
@@ -43,7 +43,7 @@ export async function GET(
           }}
         >
           <span style={{ fontSize: 32, color: MUTED }}>
-            unknown domain — try /api/og/dept/technical
+            unknown domain - try /api/og/dept/technical
           </span>
         </div>
       ),

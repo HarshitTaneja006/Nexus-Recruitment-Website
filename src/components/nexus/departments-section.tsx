@@ -59,7 +59,7 @@ export function DepartmentsSection() {
   );
 }
 
-/** One domain directory — deep-linkable via #d-<id> with an accent-tinted hover. */
+/** One domain directory - deep-linkable via #d-<id> with an accent-tinted hover. */
 function DeptCard({
   deptId,
   open,
@@ -101,7 +101,7 @@ function DeptCard({
             className="border border-border bg-background/60 px-1.5 py-0.5 font-mono text-[9px] tracking-[0.15em] text-primary/80"
             title="Live application count for this domain"
           >
-            LOAD: {load !== null ? String(load).padStart(2, "0") : "——"}
+            LOAD: {load !== null ? String(load).padStart(2, "0") : "--"}
           </span>
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
             {dept.questions.length}+{COMMON_QUESTIONS.length} Q

@@ -3,7 +3,7 @@ import { Lock } from "lucide-react";
 
 /**
  * Rendered on /stats while the public funnel is sealed (stats_public=0).
- * Core sees the live console instead — this view is for everyone else.
+ * Core sees the live console instead - this view is for everyone else.
  */
 export function StatsLocked() {
   return (
@@ -19,7 +19,7 @@ export function StatsLocked() {
           </h1>
           <p className="mt-3 font-sans text-sm leading-relaxed text-muted-foreground">
             The live funnel is <span className="font-mono text-foreground">sealed by the core team</span>.
-            Aggregate numbers — totals, velocity, per-department pipeline — stay
+            Aggregate numbers - totals, velocity, per-department pipeline - stay
             private until they decide to open the console.
           </p>
           <p className="mt-2 font-sans text-sm leading-relaxed text-muted-foreground">

@@ -1,5 +1,5 @@
 /**
- * Application status model — the review pipeline.
+ * Application status model - the review pipeline.
  *
  * Admins move applications along this flow from the review console;
  * students see a live pipeline of the same stages on their receipt.
@@ -9,7 +9,7 @@
  *                                ├→ WAITLISTED
  *                                └→ REJECTED
  *
- * Interview slots (interviewAt/interviewMode) attach to SHORTLISTED —
+ * Interview slots (interviewAt/interviewMode) attach to SHORTLISTED -
  * shortlisting doubles as "invited to interview".
  *
  * Legacy aliases (IN_REVIEW / NEEDS_INFO / INTERVIEW) exist for DISPLAY
@@ -59,8 +59,8 @@ export const STATUS_META: Record<ApplicationStatus, StatusMeta> = {
     chipClass: "border-primary/50 bg-primary/10 text-primary",
     barClass: "bg-sky-400",
     studentCopy:
-      "Transmission received. Your application is queued for the domain leads — nothing else is needed from you right now.",
-    adminHint: "default state — not touched yet",
+      "Transmission received. Your application is queued for the domain leads - nothing else is needed from you right now.",
+    adminHint: "default state - not touched yet",
   },
   SHORTLISTED: {
     label: "SHORTLISTED",
@@ -68,8 +68,8 @@ export const STATUS_META: Record<ApplicationStatus, StatusMeta> = {
     chipClass: "border-emerald-400/50 bg-emerald-400/10 text-emerald-400",
     barClass: "bg-emerald-400",
     studentCopy:
-      "You cleared the first cut. Shortlisted — interview details (if any) appear in the slot card below.",
-    adminHint: "cleared screening — attach the interview slot + mode here",
+      "You cleared the first cut. Shortlisted - interview details (if any) appear in the slot card below.",
+    adminHint: "cleared screening - attach the interview slot + mode here",
   },
   WAITLISTED: {
     label: "WAITLISTED",
@@ -77,8 +77,8 @@ export const STATUS_META: Record<ApplicationStatus, StatusMeta> = {
     chipClass: "border-warn/50 bg-warn/10 text-warn",
     barClass: "bg-warn",
     studentCopy:
-      "Strong application — you're on the reserve list. Seats may open as cycles settle.",
-    adminHint: "backup pool — may be pulled up later",
+      "Strong application - you're on the reserve list. Seats may open as cycles settle.",
+    adminHint: "backup pool - may be pulled up later",
   },
   ACCEPTED: {
     label: "ACCEPTED",
@@ -86,8 +86,8 @@ export const STATUS_META: Record<ApplicationStatus, StatusMeta> = {
     chipClass: "border-ok/50 bg-ok/10 text-ok",
     barClass: "bg-emerald-400",
     studentCopy:
-      "Welcome to the collective. Check your email for onboarding — your first build night is waiting.",
-    adminHint: "offer sent — final state",
+      "Welcome to the collective. Check your email for onboarding - your first build night is waiting.",
+    adminHint: "offer sent - final state",
   },
   REJECTED: {
     label: "REJECTED",
@@ -95,14 +95,14 @@ export const STATUS_META: Record<ApplicationStatus, StatusMeta> = {
     chipClass: "border-destructive/50 bg-destructive/10 text-destructive",
     barClass: "bg-destructive",
     studentCopy:
-      "This cycle ends here — that says nothing about your skill. Re-apply next cycle; the door stays open.",
-    adminHint: "closed for this cycle — be kind, it happens",
+      "This cycle ends here - that says nothing about your skill. Re-apply next cycle; the door stays open.",
+    adminHint: "closed for this cycle - be kind, it happens",
   },
 };
 
 /**
  * Display-only meta for statuses that can still appear in old audit trails.
- * Deliberately NOT part of APPLICATION_STATUSES — the API and the admin
+ * Deliberately NOT part of APPLICATION_STATUSES - the API and the admin
  * status editor never offer these.
  */
 export const LEGACY_STATUS_META: Record<string, StatusMeta> = {
@@ -112,7 +112,7 @@ export const LEGACY_STATUS_META: Record<string, StatusMeta> = {
     chipClass: "border-amber-400/50 bg-amber-400/10 text-amber-400",
     barClass: "bg-amber-400",
     studentCopy: "",
-    adminHint: "legacy stage — resolved to SUBMITTED",
+    adminHint: "legacy stage - resolved to SUBMITTED",
   },
   NEEDS_INFO: {
     label: "NEEDS_INFO",
@@ -120,7 +120,7 @@ export const LEGACY_STATUS_META: Record<string, StatusMeta> = {
     chipClass: "border-orange-400/50 bg-orange-400/10 text-orange-400",
     barClass: "bg-orange-400",
     studentCopy: "",
-    adminHint: "legacy stage — resolved to SUBMITTED",
+    adminHint: "legacy stage - resolved to SUBMITTED",
   },
   INTERVIEW: {
     label: "INTERVIEW",
@@ -128,7 +128,7 @@ export const LEGACY_STATUS_META: Record<string, StatusMeta> = {
     chipClass: "border-fuchsia-400/50 bg-fuchsia-400/10 text-fuchsia-400",
     barClass: "bg-fuchsia-400",
     studentCopy: "",
-    adminHint: "legacy stage — resolved to SHORTLISTED",
+    adminHint: "legacy stage - resolved to SHORTLISTED",
   },
 };
 
@@ -168,7 +168,7 @@ export function getStatusMeta(status: string): StatusMeta {
   return LEGACY_STATUS_META[status] ?? STATUS_META.SUBMITTED;
 }
 
-/** Label for any status incl. legacy — falls back to the raw string. */
+/** Label for any status incl. legacy - falls back to the raw string. */
 export function getStatusLabel(status: string): string {
   return getStatusMeta(status).label;
 }
@@ -184,8 +184,8 @@ export const INTERVIEW_MODE_META: Record<
   InterviewMode,
   { label: string; hint: string }
 > = {
-  GOOGLE_MEET: { label: "GOOGLE_MEET", hint: "online — link goes in the note" },
-  IN_PERSON: { label: "IN_PERSON", hint: "campus — venue goes in the note" },
+  GOOGLE_MEET: { label: "GOOGLE_MEET", hint: "online - link goes in the note" },
+  IN_PERSON: { label: "IN_PERSON", hint: "campus - venue goes in the note" },
   PHONE: { label: "PHONE", hint: "we call the WhatsApp number on record" },
 };
 

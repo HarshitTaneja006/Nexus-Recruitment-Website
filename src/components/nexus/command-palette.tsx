@@ -37,7 +37,7 @@ export function openCommandPalette() {
 }
 
 /**
- * NEXUS command palette — ⌘K / Ctrl+K from anywhere on the portal.
+ * NEXUS command palette - ⌘K / Ctrl+K from anywhere on the portal.
  * Terminal-flavoured launcher for pages and landing sections. Selection
  * closes the palette before navigating so the dialog never fights the
  * scroll target.
@@ -63,7 +63,7 @@ export function CommandPalette() {
     };
   }, []);
 
-  /** Close first, then navigate — in-page anchors scroll, others route. */
+  /** Close first, then navigate - in-page anchors scroll, others route. */
   const run = React.useCallback(
     (action: () => void) => {
       setOpen(false);
@@ -96,7 +96,7 @@ export function CommandPalette() {
       const url = window.location.origin;
       navigator.clipboard
         ?.writeText(url)
-        .then(() => toast.success("LINK_COPIED", { description: `${url} — pass it on.` }))
+        .then(() => toast.success("LINK_COPIED", { description: `${url} - pass it on.` }))
         .catch(() => toast.error("CLIPBOARD_BLOCKED", { description: url }));
     });
   }, [run]);
@@ -106,7 +106,7 @@ export function CommandPalette() {
       open={open}
       onOpenChange={setOpen}
       title="$ nexus --run"
-      description="Terminal command palette — jump to any page, section or domain"
+      description="Terminal command palette - jump to any page, section or domain"
       showCloseButton={false}
       className="overflow-hidden rounded-none border-primary/30 font-mono shadow-[0_0_80px_rgba(96,165,250,0.18)] sm:max-w-xl"
     >
@@ -124,7 +124,7 @@ export function CommandPalette() {
       <CommandList>
         <CommandEmpty>
           <span className="font-mono text-xs text-muted-foreground">
-            command not found — try &quot;stats&quot;, &quot;apply&quot; or &quot;faq&quot;
+            command not found - try &quot;stats&quot;, &quot;apply&quot; or &quot;faq&quot;
           </span>
         </CommandEmpty>
 

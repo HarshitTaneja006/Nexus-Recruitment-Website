@@ -8,12 +8,12 @@ import { getAdminSession } from "@/lib/admin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const alt =
-  "NEXUS Recruitments '26 — live recruitment stats (aggregates only)";
+  "NEXUS Recruitments '26 - live recruitment stats (aggregates only)";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 /**
- * GET /api/og/stats?dept=<id> — live, terminal-styled social card for the
+ * GET /api/og/stats?dept=<id> - live, terminal-styled social card for the
  * public stats console. Dept-scoped when a valid ?dept= is passed (the
  * /stats page wires this through generateMetadata so shared scoped links
  * unfurl with the focused domain's numbers). Aggregates only, zero PII.
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
         (acc, b) => acc + (b["ACCEPTED"] ?? 0),
         0
       );
-  const acceptRate = total > 0 ? `${Math.round((accepted / total) * 100)}%` : "—";
+  const acceptRate = total > 0 ? `${Math.round((accepted / total) * 100)}%` : "-";
   const last24h = bucket && dept
     ? (stats?.timelineByDept?.[dept.id]?.at(-1)?.count ?? 0)
     : (stats?.last24h ?? 0);
@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
     count: bucket ? (bucket[s] ?? 0) : Object.values(stats?.byDepartmentStatus ?? {}).reduce((acc, b) => acc + (b[s] ?? 0), 0),
   })).filter((s) => s.count > 0);
 
-  const scopeLabel = dept ? `d ${dept.dir}/ — ${dept.name}` : "ALL DOMAINS";
+  const scopeLabel = dept ? `d ${dept.dir}/ - ${dept.name}` : "ALL DOMAINS";
   const scopeHex = dept ? getDepartmentHex(dept.id) : PRIMARY;
 
   const nowIst = new Date().toLocaleString("en-IN", {
@@ -207,7 +207,7 @@ export async function GET(req: NextRequest) {
               ))}
               {split.length === 0 ? (
                 <span style={{ fontSize: 16, letterSpacing: 2, color: MUTED }}>
-                  no applications yet — be the first
+                  no applications yet - be the first
                 </span>
               ) : null}
             </div>
@@ -274,7 +274,7 @@ function sealedCard(dept: ReturnType<typeof getDepartment>) {
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <span style={{ fontSize: 34, color: TEXT, fontWeight: 700 }}>$ tail --stats</span>
           <span style={{ fontSize: 26, color: scopeHex, fontWeight: 700 }}>
-            {dept ? `d ${dept.dir}/ — ${dept.name}` : "ALL DOMAINS"}
+            {dept ? `d ${dept.dir}/ - ${dept.name}` : "ALL DOMAINS"}
           </span>
           <span style={{ fontSize: 20, color: MUTED, maxWidth: 820 }}>
             The live funnel is sealed by the core team. Aggregate numbers unlock when the drive opens its stats console.
@@ -283,7 +283,7 @@ function sealedCard(dept: ReturnType<typeof getDepartment>) {
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 18, color: PRIMARY }}>nexus.runs-on.dev</span>
-          <span style={{ fontSize: 15, letterSpacing: 2, color: MUTED }}>apply now — link in bio</span>
+          <span style={{ fontSize: 15, letterSpacing: 2, color: MUTED }}>apply now - link in bio</span>
         </div>
       </div>
     ),

@@ -73,7 +73,7 @@ function DeadlineCountdown({ open }: { open: boolean }) {
   return (
     <span
       className="flex items-center gap-1.5 tabular-nums"
-      title={`Applications close ${DRIVE_DEADLINE.toISOString()} — lock in before the window shuts`}
+      title={`Applications close ${DRIVE_DEADLINE.toISOString()} - lock in before the window shuts`}
       suppressHydrationWarning
     >
       {/* static, non-ticking text for screen readers */}
@@ -161,12 +161,12 @@ export function SiteHeader() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* command-palette launcher — keycap chip, no ambiguous icon */}
+          {/* command-palette launcher - keycap chip, no ambiguous icon */}
           <button
             type="button"
             onClick={openCommandPalette}
             aria-label="Open command menu (Control or Command K)"
-            title="Command menu — press Ctrl/⌘ + K"
+            title="Command menu - press Ctrl/⌘ + K"
             className="group inline-flex h-9 items-center gap-2 border border-border bg-card/60 pl-1.5 pr-2 font-mono transition-all hover:border-primary/60 hover:bg-primary/10 hover:shadow-[0_0_16px_rgba(96,165,250,0.25)]"
           >
             <span className="flex items-center gap-1" aria-hidden="true" suppressHydrationWarning>

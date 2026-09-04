@@ -12,7 +12,7 @@ import { getDepartment } from "@/lib/departments";
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "EducationalOrganization",
-  name: "NEXUS — Student Tech Collective, VIT Chennai",
+  name: "NEXUS - Student Tech Collective, VIT Chennai",
   url: "https://nexus.runs-on.dev",
   description:
     "Student tech collective at VIT Chennai. Recruitments '26 are open for the Technical, Management and Design & Social Media departments.",
@@ -39,8 +39,8 @@ export async function generateMetadata({
     return {};
   }
 
-  const title = `NEXUS '26 — ${dept.name}`;
-  const description = `${dept.tagline}. Apply to the ${dept.name} domain of NEXUS — the Student Tech Collective at VIT Chennai.`;
+  const title = `NEXUS '26 - ${dept.name}`;
+  const description = `${dept.tagline}. Apply to the ${dept.name} domain of NEXUS - the Student Tech Collective at VIT Chennai.`;
   const image = `/api/og/dept/${dept.id}`;
 
   return {
@@ -50,7 +50,7 @@ export async function generateMetadata({
       title,
       description,
       url: `/?dept=${dept.id}`,
-      images: [{ url: image, width: 1200, height: 630, alt: `${dept.name} — NEXUS Recruitments '26 domain card` }],
+      images: [{ url: image, width: 1200, height: 630, alt: `${dept.name} - NEXUS Recruitments '26 domain card` }],
     },
     twitter: {
       card: "summary_large_image",
@@ -66,7 +66,7 @@ export default function HomePage() {
     <>
       <script
         type="application/ld+json"
-        // static object — no user input, safe to inline
+        // static object - no user input, safe to inline
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <Hero />

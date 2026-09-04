@@ -135,7 +135,7 @@ export function AdminDashboard() {
           cache: "no-store",
         });
         if (res.status === 403) {
-          toast.error("Access revoked — refresh the page to re-authenticate.");
+          toast.error("Access revoked - refresh the page to re-authenticate.");
           return;
         }
         if (!res.ok) {
@@ -183,7 +183,7 @@ export function AdminDashboard() {
     return Math.max(1, ...Object.values(data.stats.byDepartment));
   }, [data]);
 
-  /** files currently SHORTLISTED — badge for the AGENDA tab (slots live here) */
+  /** files currently SHORTLISTED - badge for the AGENDA tab (slots live here) */
   const interviewCount = useMemo(() => {
     if (!data) return 0;
     let n = 0;
@@ -382,7 +382,7 @@ export function AdminDashboard() {
           <div className="flex items-center gap-6">
             <div>
               <p className="font-mono text-4xl font-bold text-primary tabular-nums">
-                {loading ? "—" : data?.stats.total ?? 0}
+                {loading ? "-" : data?.stats.total ?? 0}
               </p>
               <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
                 total applications
@@ -481,7 +481,7 @@ export function AdminDashboard() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="grep name / email…  ( / )"
-              aria-label="Search applications by name or email — press slash to focus"
+              aria-label="Search applications by name or email - press slash to focus"
               className="h-9 w-full border border-input bg-background/80 pl-8 pr-3 font-mono text-xs text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
             />
           </div>
@@ -545,7 +545,7 @@ export function AdminDashboard() {
           <div className="flex flex-col items-center gap-3 p-12 text-center">
             <Inbox className="h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
             <p className="font-mono text-xs text-muted-foreground">
-              0 RESULTS — the pipe is quiet. Adjust filters or wait for transmissions.
+              0 RESULTS - the pipe is quiet. Adjust filters or wait for transmissions.
             </p>
           </div>
         ) : (
@@ -648,7 +648,7 @@ export function AdminDashboard() {
                           <StatusBadge status={app.status} />
                         </td>
                         <td className="px-4 py-2.5 text-muted-foreground tabular-nums">
-                          {linkCount > 0 ? `${linkCount} ↗` : "—"}
+                          {linkCount > 0 ? `${linkCount} ↗` : "-"}
                         </td>
                         <td className="px-4 py-2.5 text-muted-foreground">
                           {new Date(app.submittedAt).toLocaleString("en-IN", {
@@ -774,7 +774,7 @@ export function AdminDashboard() {
           setSelectedIds([]);
           setComposerOpen(false);
           toast.success(`CUSTOM_MAIL_QUEUED · ${n}`, {
-            description: "Rows in the outbox — FLUSH_QUEUE delivers via SMTP.",
+            description: "Rows in the outbox - FLUSH_QUEUE delivers via SMTP.",
           });
         }}
       />
@@ -851,7 +851,7 @@ function ConsoleTabButton({
 }
 
 /**
- * Notification outbox — every review commit queues a student-facing email
+ * Notification outbox - every review commit queues a student-facing email
  * here. FLUSH_QUEUE now calls the real drain worker
  * (POST /api/admin/notifications/drain): rows are claimed FIFO and delivered
  * via SMTP when SMTP_HOST is set (sandbox mode marks SENT without a
@@ -950,7 +950,7 @@ function OutboxPanel() {
         body: JSON.stringify({ id, action: "requeue" }),
       });
       if (!res.ok) throw new Error(String(res.status));
-      toast.success("RE_QUEUED", { description: "Row back in the queue — drain to retry delivery." });
+      toast.success("RE_QUEUED", { description: "Row back in the queue - drain to retry delivery." });
       await load();
     } catch {
       toast.error("REQUEUE_FAILED");
@@ -969,7 +969,7 @@ function OutboxPanel() {
         body: JSON.stringify({}),
       });
       if (res.status === 423) {
-        toast.warning("WINDOW_SHUT", { description: "The deadline has passed — nobody left to remind." });
+        toast.warning("WINDOW_SHUT", { description: "The deadline has passed - nobody left to remind." });
         return;
       }
       if (!res.ok) throw new Error(String(res.status));
@@ -981,11 +981,11 @@ function OutboxPanel() {
       };
       if (d.queued === 0) {
         toast.info("NO_ELIGIBLE_DRAFTS", {
-          description: `${d.candidates} draft-only student(s) — all reminded within the last 48h.`,
+          description: `${d.candidates} draft-only student(s) - all reminded within the last 48h.`,
         });
       } else {
         toast.success(`DRAFT_REMINDERS_QUEUED · ${d.queued}`, {
-          description: `${d.candidates} draft-only student(s) found · ${d.queued} mail(s) in the queue — FLUSH_QUEUE to send.`,
+          description: `${d.candidates} draft-only student(s) found · ${d.queued} mail(s) in the queue - FLUSH_QUEUE to send.`,
         });
       }
       await load();
@@ -1011,8 +1011,8 @@ function OutboxPanel() {
               )}
               title={
                 provider === "smtp"
-                  ? "SMTP_HOST detected — FLUSH_QUEUE delivers real email"
-                  : "No SMTP_HOST — FLUSH_QUEUE accepts the hand-off in sandbox mode"
+                  ? "SMTP_HOST detected - FLUSH_QUEUE delivers real email"
+                  : "No SMTP_HOST - FLUSH_QUEUE accepts the hand-off in sandbox mode"
               }
             >
               PROVIDER: {provider.toUpperCase()}
@@ -1064,7 +1064,7 @@ function OutboxPanel() {
         <div className="flex flex-col items-center gap-3 p-12 text-center">
           <BellRing className="h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
           <p className="font-mono text-xs text-muted-foreground">
-            QUEUE EMPTY — commit a review action and the student email lands here.
+            QUEUE EMPTY - commit a review action and the student email lands here.
           </p>
         </div>
       ) : (
@@ -1240,7 +1240,7 @@ function DetailDialog({
   const [saving, setSaving] = useState(false);
   const lastAppId = useRef<string | null>(null);
 
-  // sync editor state when a DIFFERENT file is opened — identity-guarded so the
+  // sync editor state when a DIFFERENT file is opened - identity-guarded so the
   // optimistic update → server-truth swap (same id) never wipes in-progress
   // editor state like an unresolved SLOT_CONFLICT panel
   useEffect(() => {
@@ -1315,7 +1315,7 @@ function DetailDialog({
           setSlotConflicts(data.conflicts ?? []);
           toast.warning("SLOT_CONFLICT", {
             description:
-              "Another candidate holds a slot within ±45 min. Review the clash below — commit --force to double-book anyway.",
+              "Another candidate holds a slot within ±45 min. Review the clash below - commit --force to double-book anyway.",
           });
           return;
         }
@@ -1326,12 +1326,12 @@ function DetailDialog({
       onUpdated(data.application); // replace with server truth
       setSlotConflicts(null);
       toast.success(`STATUS_COMMITTED · ${getStatusMeta(draftStatus).label}`, {
-        description: `${application.fullName} — student sees this live on their receipt.`,
+        description: `${application.fullName} - student sees this live on their receipt.`,
       });
     } catch {
       onUpdated(application); // roll back optimistic patch
       toast.error("COMMIT_FAILED", {
-        description: "Could not save the status. Row restored — try again.",
+        description: "Could not save the status. Row restored - try again.",
       });
     } finally {
       setSaving(false);
@@ -1389,7 +1389,7 @@ function DetailDialog({
             {/* paper-only masthead for the interviewer one-pager */}
             <div className="nx-print-only mb-4 border border-slate-400 px-3 py-2">
               <p className="text-[11px] font-bold tracking-[0.3em]">
-                NEXUS // INTERVIEW SHEET — RECRUITMENTS '26
+                NEXUS // INTERVIEW SHEET - RECRUITMENTS '26
               </p>
               <p className="mt-1 text-[10px] tracking-wider">
                 {application.fullName} · d {dept?.dir ?? application.department}/ ·{" "}
@@ -1431,7 +1431,7 @@ function DetailDialog({
                     <Meta
                       icon={<MessageCircle className="h-3 w-3" />}
                       label="WHATSAPP"
-                      value={application.whatsapp?.trim() || "— not on file (legacy row) —"}
+                      value={application.whatsapp?.trim() || "- not on file (legacy row) -"}
                       accent={application.whatsapp?.trim() ? "text-emerald-400" : "text-muted-foreground/60"}
                     />
                     <Meta
@@ -1450,7 +1450,7 @@ function DetailDialog({
                     <Meta label="APPLICANT" value={`${application.fullName} · ${formatYearOfStudy(application.yearOfStudy)}`} />
                     <Meta
                       label="DOMAIN"
-                      value={`d ${dept?.dir}/ — ${dept?.name ?? application.department}`}
+                      value={`d ${dept?.dir}/ - ${dept?.name ?? application.department}`}
                       accent={dept?.accentClass}
                     />
                     {application.interviewAt ? (
@@ -1493,7 +1493,7 @@ function DetailDialog({
                                     hour12: false,
                                   }
                                 )
-                              : "—"
+                              : "-"
                           } IST`}
                         accent="text-orange-400"
                       />
@@ -1524,7 +1524,7 @@ function DetailDialog({
             >
               <p className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.25em] text-muted-foreground">
                 <ShieldCheck className="h-3 w-3" aria-hidden="true" />
-                review action — visible to the student live
+                review action - visible to the student live
               </p>
               <div
                 role="radiogroup"
@@ -1555,7 +1555,7 @@ function DetailDialog({
                 })}
               </div>
 
-              {/* interview slot scheduler — appears for status = SHORTLISTED */}
+              {/* interview slot scheduler - appears for status = SHORTLISTED */}
               {draftStatus === "SHORTLISTED" ? (
                 <div
                   className="mt-3 border border-fuchsia-400/40 bg-fuchsia-400/5 p-3"
@@ -1617,13 +1617,13 @@ function DetailDialog({
                   <p className="mt-2 text-[9px] leading-relaxed text-muted-foreground/70">
                     {INTERVIEW_MODE_META[slotMode as keyof typeof INTERVIEW_MODE_META]
                       ?.hint ?? ""}{" "}
-                    — put the meet link / venue in the note below. The student
+                    - put the meet link / venue in the note below. The student
                     gets a live countdown on their receipt.
                   </p>
                 </div>
               ) : null}
 
-              {/* slot overlap guard — the server refused the double-booking */}
+              {/* slot overlap guard - the server refused the double-booking */}
               {slotConflicts && slotConflicts.length > 0 && draftStatus === "SHORTLISTED" ? (
                 <div
                   className="mt-3 border border-destructive/50 bg-destructive/5 p-3"
@@ -1635,7 +1635,7 @@ function DetailDialog({
                     $ ntp --check · SLOT_CONFLICT
                   </p>
                   <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground">
-                    these files already hold a slot within ±45 min — one panel can't
+                    these files already hold a slot within ±45 min - one panel can't
                     be in two rooms at once:
                   </p>
                   <ul className="mt-2 space-y-1">
@@ -1678,7 +1678,7 @@ function DetailDialog({
                 </div>
               ) : null}
 
-              {/* clarification loop is retired — status list is flat now */}
+              {/* clarification loop is retired - status list is flat now */}
 
               <textarea
                 value={draftNote}
@@ -1702,7 +1702,7 @@ function DetailDialog({
                               minute: "2-digit",
                               hour12: false,
                             })
-                          : "—"
+                          : "-"
                       }`
                     : "never reviewed"}
                 </p>
@@ -1839,7 +1839,7 @@ function Meta({
 }
 
 /* ------------------------------------------------------------------ */
-/* AGENDA — interview day sheet, chronological slots per IST day       */
+/* AGENDA - interview day sheet, chronological slots per IST day       */
 /* ------------------------------------------------------------------ */
 
 interface AgendaDay {
@@ -1964,12 +1964,12 @@ function AgendaPanel({ onOpen }: { onOpen: (app: ApplicationRecord) => void }) {
     const lines: string[] = ["NEXUS PANEL AGENDA (IST)"];
     for (const day of days) {
       lines.push(
-        `${agendaDayLabel(day.date)}${day.date === todayKey ? " · TODAY" : ""} — ${day.slots.length} slot${day.slots.length === 1 ? "" : "s"}`
+        `${agendaDayLabel(day.date)}${day.date === todayKey ? " · TODAY" : ""} - ${day.slots.length} slot${day.slots.length === 1 ? "" : "s"}`
       );
       for (const s of day.slots) {
         const p = isoToIstParts(s.interviewAt ?? null);
         lines.push(
-          `  ${p.time}  ${s.fullName} (${s.department}${s.interviewMode ? ", " + s.interviewMode : ""}) — ${agendaTminus(s.interviewAt as string, now)}`
+          `  ${p.time}  ${s.fullName} (${s.department}${s.interviewMode ? ", " + s.interviewMode : ""}) - ${agendaTminus(s.interviewAt as string, now)}`
         );
       }
     }
@@ -1992,7 +1992,7 @@ function AgendaPanel({ onOpen }: { onOpen: (app: ApplicationRecord) => void }) {
         <div className="flex items-center gap-2">
           <span className="font-mono text-[9px] tracking-widest text-muted-foreground/60">
             {failed
-              ? "OFFLINE — retry"
+              ? "OFFLINE - retry"
               : `${(apps ?? []).length} scheduled · ${upcoming.length} ahead`}
           </span>
           <button
@@ -2044,7 +2044,7 @@ function AgendaPanel({ onOpen }: { onOpen: (app: ApplicationRecord) => void }) {
       <div className="p-4">
         {failed ? (
           <p className="border border-destructive/40 bg-destructive/10 px-3 py-2 font-mono text-[10px] tracking-widest text-destructive">
-            AGENDA_OFFLINE — the slot list could not be loaded. RESCAN from the
+            AGENDA_OFFLINE - the slot list could not be loaded. RESCAN from the
             applications tab or refresh.
           </p>
         ) : apps === null ? (
@@ -2053,7 +2053,7 @@ function AgendaPanel({ onOpen }: { onOpen: (app: ApplicationRecord) => void }) {
           </p>
         ) : days.length === 0 && unsotted.length === 0 ? (
           <p className="py-6 text-center font-mono text-xs text-muted-foreground/70">
-            no interviews scheduled — SHORTLIST a file and set a slot.
+            no interviews scheduled - SHORTLIST a file and set a slot.
           </p>
         ) : (
           <div className="space-y-5">
@@ -2117,7 +2117,7 @@ function AgendaPanel({ onOpen }: { onOpen: (app: ApplicationRecord) => void }) {
 /** Live T-minus chip text for a slot, minute granularity. */
 function agendaTminus(iso: string, now: number): string {
   const diff = new Date(iso).getTime() - now;
-  if (Number.isNaN(diff)) return "—";
+  if (Number.isNaN(diff)) return "-";
   if (diff <= -45 * 60_000) return "DONE";
   if (diff <= 0) return "LIVE NOW";
   const d = Math.floor(diff / 86_400_000);
@@ -2194,7 +2194,7 @@ function AgendaRow({
 }
 
 /* ------------------------------------------------------------------ */
-/* OPSDAY — day-of interview operations strip. Renders above the tab   */
+/* OPSDAY - day-of interview operations strip. Renders above the tab   */
 /* bar whenever any interview slot lands on TODAY (IST): live IST      */
 /* clock, per-slot T-minus with seconds, IN SESSION glow. Independent  */
 /* of the applications-tab filters (fetches its own INTERVIEW list).   */
@@ -2215,7 +2215,7 @@ function OpsDayStrip({ onOpen }: { onOpen: (app: ApplicationRecord) => void }) {
       const payload = (await res.json()) as AdminPayload;
       setApps(payload.applications);
     } catch {
-      setApps(null); // strip stays silent on failure — never blocks the console
+      setApps(null); // strip stays silent on failure - never blocks the console
     }
   }, []);
 
@@ -2240,7 +2240,7 @@ function OpsDayStrip({ onOpen }: { onOpen: (app: ApplicationRecord) => void }) {
     // `tick` keeps T-minus honest across the second-hand re-render
   }, [apps, todayKey, tick]);
 
-  // tick once per second — only while there is something ticking on
+  // tick once per second - only while there is something ticking on
   const hasToday = (apps?.length ?? 0) > 0 && todaySlots.length > 0;
   useEffect(() => {
     if (!hasToday) return;
@@ -2370,7 +2370,7 @@ function tminusHms(diffMs: number): string {
 }
 
 /* ------------------------------------------------------------------ */
-/* STATS ACCESS — the public funnel is SEALED by default; unlocking    */
+/* STATS ACCESS - the public funnel is SEALED by default; unlocking    */
 /* (or re-sealing) requires the STATS_LOCK_SECRET.                     */
 /* ------------------------------------------------------------------ */
 
@@ -2410,7 +2410,7 @@ function StatsAccessToggle() {
       });
       if (res.status === 403) {
         const d = (await res.json().catch(() => null)) as { message?: string } | null;
-        setError(d?.message ?? "Wrong unlock secret — the console stays sealed.");
+        setError(d?.message ?? "Wrong unlock secret - the console stays sealed.");
         return;
       }
       if (!res.ok) throw new Error(String(res.status));
@@ -2420,11 +2420,11 @@ function StatsAccessToggle() {
       setPassword("");
       toast.success(d.enabled ? "STATS_CONSOLE_OPEN" : "STATS_CONSOLE_SEALED", {
         description: d.enabled
-          ? "The live funnel is public at /stats — OG cards unfurl real numbers again."
-          : "The live funnel is private — /stats shows the sealed view to non-core.",
+          ? "The live funnel is public at /stats - OG cards unfurl real numbers again."
+          : "The live funnel is private - /stats shows the sealed view to non-core.",
       });
     } catch {
-      setError("Could not reach the lock endpoint — try again.");
+      setError("Could not reach the lock endpoint - try again.");
     } finally {
       setBusy(false);
     }
@@ -2435,7 +2435,7 @@ function StatsAccessToggle() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        title="Public stats console — unlock requires the secret"
+        title="Public stats console - unlock requires the secret"
         className={cn(
           "inline-flex h-9 items-center gap-2 border px-3 font-mono text-[10px] tracking-widest transition-colors",
           enabled
@@ -2468,7 +2468,7 @@ function StatsAccessToggle() {
                   </span>
                   . Flipping the switch requires the unlock secret (
                   <span className="font-mono text-foreground">STATS_LOCK_SECRET</span>) in both
-                  directions — no accidental publishes.
+                  directions - no accidental publishes.
                 </p>
                 <div>
                   <label
@@ -2505,7 +2505,7 @@ function StatsAccessToggle() {
                   ) : null}
                   {!configured ? (
                     <p className="mt-2 font-mono text-[10px] text-warn">
-                      ⚠ STATS_LOCK_SECRET is not set on the server — the console cannot be
+                      ⚠ STATS_LOCK_SECRET is not set on the server - the console cannot be
                       unlocked until it is configured.
                     </p>
                   ) : null}
@@ -2542,7 +2542,7 @@ function StatsAccessToggle() {
 }
 
 /* ------------------------------------------------------------------ */
-/* EMAIL COMPOSER — custom mail to selected applicants, templated      */
+/* EMAIL COMPOSER - custom mail to selected applicants, templated      */
 /* ------------------------------------------------------------------ */
 
 const TEMPLATE_VARS = [
@@ -2578,7 +2578,7 @@ function EmailComposer({
         .replaceAll("{{domain}}", getDepartment(a.department)?.name ?? a.department)
         .replaceAll("{{status}}", a.status)
         .replaceAll("{{year}}", String(a.yearOfStudy))
-        .replaceAll("{{whatsapp}}", a.whatsapp || "—");
+        .replaceAll("{{whatsapp}}", a.whatsapp || "-");
     return { subject: merge(subject), message: merge(message) };
   }, [apps, subject, message]);
 
@@ -2603,7 +2603,7 @@ function EmailComposer({
       setMessage("");
       onQueued(d.queued);
     } catch {
-      setError("Could not queue the mail — try again.");
+      setError("Could not queue the mail - try again.");
     } finally {
       setBusy(false);
     }
@@ -2621,7 +2621,7 @@ function EmailComposer({
             <div className="space-y-3 text-left">
               <p className="font-sans text-sm text-muted-foreground">
                 One mail per student, merged per-recipient and queued in the outbox as{" "}
-                <span className="font-mono text-fuchsia-300">CUSTOM</span> — FLUSH_QUEUE
+                <span className="font-mono text-fuchsia-300">CUSTOM</span> - FLUSH_QUEUE
                 delivers via SMTP.
               </p>
 
@@ -2639,7 +2639,7 @@ function EmailComposer({
                 </ul>
               ) : (
                 <p className="border border-warn/40 bg-warn/10 px-3 py-2 font-mono text-[10px] text-warn">
-                  no recipients selected — tick rows in the applications table first.
+                  no recipients selected - tick rows in the applications table first.
                 </p>
               )}
 
@@ -2653,7 +2653,7 @@ function EmailComposer({
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   maxLength={160}
-                  placeholder="[NEXUS '26] {{name}} — your {{domain}} application"
+                  placeholder="[NEXUS '26] {{name}} - your {{domain}} application"
                   className="h-10 w-full border border-input bg-background/80 px-3 text-xs text-foreground placeholder:text-muted-foreground/40 focus:border-primary focus:outline-none"
                 />
               </div>
@@ -2669,7 +2669,7 @@ function EmailComposer({
                   onChange={(e) => setMessage(e.target.value)}
                   maxLength={4000}
                   rows={6}
-                  placeholder={"Hi {{name}},\n\nWe shortlisted your {{domain}} application — your interview slot is…"}
+                  placeholder={"Hi {{name}},\n\nWe shortlisted your {{domain}} application - your interview slot is…"}
                   className="w-full resize-y border border-input bg-background/80 px-3 py-2 text-xs leading-relaxed text-foreground placeholder:text-muted-foreground/40 focus:border-primary focus:outline-none"
                 />
                 <p className="mt-1 font-mono text-[9px] text-muted-foreground/60">
@@ -2686,7 +2686,7 @@ function EmailComposer({
               {apps.length > 0 && (subject || message) ? (
                 <div className="border border-border bg-background/60 p-3">
                   <p className="text-[9px] uppercase tracking-[0.25em] text-muted-foreground">
-                    preview — merged for {apps[0].fullName}
+                    preview - merged for {apps[0].fullName}
                   </p>
                   <p className="mt-1 break-words text-xs font-bold text-foreground">
                     {preview.subject || "(no subject)"}

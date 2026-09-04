@@ -43,7 +43,7 @@ export function ApplyClient({ profile }: { profile: VitEmailProfile }) {
       try {
         await useApplicationStore.persist.rehydrate();
       } catch {
-        /* corrupt storage — start clean */
+        /* corrupt storage - start clean */
       }
       useApplicationStore.getState().setHydrated();
 
@@ -67,7 +67,7 @@ export function ApplyClient({ profile }: { profile: VitEmailProfile }) {
           return;
         }
       } catch {
-        /* network hiccup — continue to form, local draft still holds data */
+        /* network hiccup - continue to form, local draft still holds data */
       }
 
       // 3. Draft recovery: compare server mirror vs local copy
@@ -146,7 +146,7 @@ export function ApplyClient({ profile }: { profile: VitEmailProfile }) {
             s.setServerSyncedAt(data.updatedAt ?? new Date().toISOString());
           }
         } catch {
-          /* server mirror failed — localStorage copy is intact */
+          /* server mirror failed - localStorage copy is intact */
         }
       }, 1500);
     });
@@ -184,7 +184,7 @@ export function ApplyClient({ profile }: { profile: VitEmailProfile }) {
         updatedAt: new Date().toISOString(),
       };
       // The POST response returns the full application; refresh via GET is
-      // simpler than threading the whole record through — fetch it.
+      // simpler than threading the whole record through - fetch it.
       fetch("/api/application", { cache: "no-store" })
         .then((r) => r.json())
         .then((d: { application: ApplicationRecord | null }) => {
@@ -212,7 +212,7 @@ export function ApplyClient({ profile }: { profile: VitEmailProfile }) {
     });
     setEditing(true);
     toast.info("APPLICATION_REOPENED", {
-      description: "Edit your answers and re-submit — the new version overwrites the old.",
+      description: "Edit your answers and re-submit - the new version overwrites the old.",
     });
   }, [application]);
 
@@ -249,7 +249,7 @@ export function ApplyClient({ profile }: { profile: VitEmailProfile }) {
               · 23:59 IST
             </span>
             . If you submitted before the deadline, your application is safely
-            stored and under review — sign in to check its status.
+            stored and under review - sign in to check its status.
           </p>
           <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
@@ -264,7 +264,7 @@ export function ApplyClient({ profile }: { profile: VitEmailProfile }) {
     );
   }
 
-  // submitted → receipt (works even when the drive is closed — read-only)
+  // submitted → receipt (works even when the drive is closed - read-only)
   if (application && !editing) {
     return (
       <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 md:py-14">
@@ -301,7 +301,7 @@ export function ApplyClient({ profile }: { profile: VitEmailProfile }) {
               );
               setRecovered(null);
               setBannerDismissed(false);
-              toast("DRAFT_WIPED", { description: "Fresh start — rm -rf ~/draft" });
+              toast("DRAFT_WIPED", { description: "Fresh start - rm -rf ~/draft" });
             }}
           />
         </div>

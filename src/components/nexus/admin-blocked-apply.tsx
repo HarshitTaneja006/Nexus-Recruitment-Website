@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 /**
- * Admins don't apply to their own drive — this is what they see instead of
+ * Admins don't apply to their own drive - this is what they see instead of
  * the application form. Required by core: the exact string below.
  */
 export function AdminBlockedApply() {
@@ -24,7 +24,7 @@ export function AdminBlockedApply() {
           You are signed in with a core-team email on the{" "}
           <span className="font-mono text-foreground">ADMIN_EMAILS</span>{" "}
           allowlist. Applying to your own drive would be a conflict of
-          interest — and honestly, a little suspicious.
+          interest - and honestly, a little suspicious.
         </p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link

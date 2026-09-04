@@ -57,7 +57,7 @@ export function Hero() {
         <div>
           <p className="mb-5 inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
             <span className="status-dot" aria-hidden="true" />
-            $ whoami — student tech collective · vit chennai
+            $ whoami - student tech collective · vit chennai
           </p>
 
           <AsciiLogo />
@@ -71,7 +71,7 @@ export function Hero() {
             {DRIVE.label} are <span className="text-primary">live</span>. One
             club, three departments, zero spectator mode. We architect web
             platforms, train neural models, balance budgets and design the
-            stories that ship them — together.
+            stories that ship them - together.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -95,7 +95,7 @@ export function Hero() {
               ["119+", "ACTIVE MEMBERS"],
               ["15+", "EVENTS SHIPPED"],
               ["03", "DEPARTMENTS"],
-              [stats ? String(stats.total).padStart(3, "0") : "———", "APPLICATIONS"],
+              [stats ? String(stats.total).padStart(3, "0") : "---", "APPLICATIONS"],
             ].map(([value, label]) => (
               <div key={label} className="bg-card px-4 py-3">
                 <dt className="sr-only">{label}</dt>

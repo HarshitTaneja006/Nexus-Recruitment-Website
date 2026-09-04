@@ -21,8 +21,8 @@ function secretMatches(input: string): boolean {
 }
 
 /**
- * GET /api/admin/stats-lock — current public-stats flag (admin only).
- * POST /api/admin/stats-lock — {enabled, password}: flip the flag; the
+ * GET /api/admin/stats-lock - current public-stats flag (admin only).
+ * POST /api/admin/stats-lock - {enabled, password}: flip the flag; the
  * STATS_LOCK_SECRET is required for BOTH directions so a stray click can
  * never publish (or hide) the funnel.
  */
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
 
   if (!secretMatches(parsed.data.password)) {
     return NextResponse.json(
-      { error: "BAD_SECRET", message: "Wrong unlock secret — the console stays sealed." },
+      { error: "BAD_SECRET", message: "Wrong unlock secret - the console stays sealed." },
       { status: 403 }
     );
   }

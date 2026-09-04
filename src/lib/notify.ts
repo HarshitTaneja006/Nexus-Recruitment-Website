@@ -34,7 +34,7 @@ export function daysUntilDeadline(now = new Date()): number {
 
 /** Queue DRAFT_REMINDER mail for every eligible draft-only student. */
 export async function queueDraftReminderSweep(): Promise<number> {
-  if (DRIVE_DEADLINE.getTime() <= Date.now()) return 0; // window shut — nobody can act
+  if (DRIVE_DEADLINE.getTime() <= Date.now()) return 0; // window shut - nobody can act
 
   const candidates = await listDraftReminderCandidates();
   let queued = 0;
@@ -47,21 +47,21 @@ export async function queueDraftReminderSweep(): Promise<number> {
     const lines = [
       `Hi ${c.fullName ?? "there"},`,
       "",
-      `Your NEXUS Recruitments '26 draft${dept} is still sitting in the outbox — and the window closes in ~${days} day${days === 1 ? "" : "s"} (24 Sep 2026, 23:59 IST).`,
+      `Your NEXUS Recruitments '26 draft${dept} is still sitting in the outbox - and the window closes in ~${days} day${days === 1 ? "" : "s"} (24 Sep 2026, 23:59 IST).`,
       "",
       "Your answers were auto-saved, so picking up where you left off takes one click:",
       "  → sign in at https://nexus.runs-on.dev/apply and hit submit.",
       "",
-      "No draft? You can still start fresh — but do it before the deadline.",
+      "No draft? You can still start fresh - but do it before the deadline.",
       "",
-      "— NEXUS core team · VIT Chennai",
+      "- NEXUS core team · VIT Chennai",
     ];
     await queueNotification({
-      applicationId: `draft:${c.email}`, // synthetic id — no application exists yet
+      applicationId: `draft:${c.email}`, // synthetic id - no application exists yet
       email: c.email,
       fullName: c.fullName ?? "Applicant",
       type: "DRAFT_REMINDER",
-      subject: `[NEXUS '26] Your application is one click away — ${days} day${days === 1 ? "" : "s"} left`,
+      subject: `[NEXUS '26] Your application is one click away - ${days} day${days === 1 ? "" : "s"} left`,
       body: lines.join("\n"),
     });
     queued += 1;

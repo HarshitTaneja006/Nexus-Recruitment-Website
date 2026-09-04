@@ -133,13 +133,13 @@ export async function PATCH(
           })} IST${interviewMode ? ` · ${interviewMode}` : ""}`
         );
       }
-      parts.push("", "— NEXUS core team · VIT Chennai", "https://nexus.runs-on.dev");
+      parts.push("", "- NEXUS core team · VIT Chennai", "https://nexus.runs-on.dev");
       await queueNotification({
         applicationId: updated.id,
         email: updated.email,
         fullName: updated.fullName,
         type: "STATUS_CHANGE",
-        subject: `[NEXUS '26] Application update — ${meta.label}`,
+        subject: `[NEXUS '26] Application update - ${meta.label}`,
         body: parts.join("\n"),
       });
     } catch (notifyErr) {

@@ -22,9 +22,9 @@ const actionSchema = z.object({
 });
 
 /**
- * GET /api/admin/notifications — outbox: latest 50 rows + queued counter +
+ * GET /api/admin/notifications - outbox: latest 50 rows + queued counter +
  * delivery provider hint ("smtp" | "sandbox").
- * PATCH /api/admin/notifications — {id, action:"send"} mark SENT ·
+ * PATCH /api/admin/notifications - {id, action:"send"} mark SENT ·
  * {id, action:"requeue"} put a FAILED row back in the queue ·
  * {all:true} drain-simulate everything queued.
  *
@@ -39,7 +39,7 @@ export async function GET() {
   }
   try {
     const outbox = await listNotifications(50);
-    // capability hint for the console — never leaks the key itself
+    // capability hint for the console - never leaks the key itself
     const provider = getMailProvider();
     return NextResponse.json({ ...outbox, provider });
   } catch (err) {

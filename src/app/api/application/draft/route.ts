@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 /**
  * Server-side mirror of the in-progress form. The browser keeps the
  * primary copy in localStorage; this protects students across devices
- * and browsers. Runs silently — failures never block the student.
+ * and browsers. Runs silently - failures never block the student.
  */
 
 export async function GET() {
@@ -62,7 +62,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ ok: true, updatedAt: draft.updatedAt });
   } catch (err) {
     console.error("[api/application/draft] write failed:", err);
-    // Never block the student on draft-sync failure — localStorage still holds the data.
+    // Never block the student on draft-sync failure - localStorage still holds the data.
     return NextResponse.json({ ok: false }, { status: 200 });
   }
 }

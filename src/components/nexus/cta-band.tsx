@@ -58,7 +58,7 @@ export function CtaBand() {
           <span className="cursor-blink" aria-hidden="true" />
         </h2>
         <p className="mt-4 max-w-xl font-sans text-sm leading-relaxed text-muted-foreground sm:text-base">
-          Applications are reviewed as they land — the earlier you transmit,
+          Applications are reviewed as they land - the earlier you transmit,
           the longer your answers stay in a reviewer&apos;s memory.
         </p>
 
@@ -94,13 +94,13 @@ export function CtaBand() {
         ) : (
           <div className="mt-8 flex flex-col items-center gap-4">
             <p className="border border-destructive/50 bg-destructive/10 px-6 py-4 font-mono text-sm text-destructive">
-              DRIVE_CLOSED — see you next cycle.
+              DRIVE_CLOSED - see you next cycle.
             </p>
             <Link
               href="/apply"
               className="font-mono text-[10px] tracking-[0.25em] text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline"
             >
-              ./CHECK_STATUS — review an already submitted application
+              ./CHECK_STATUS - review an already submitted application
             </Link>
           </div>
         )}

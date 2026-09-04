@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/stats — drive statistics for the landing page + /stats console.
+ * GET /api/stats - drive statistics for the landing page + /stats console.
  * SEALED by default: when core has not unlocked `stats_public`, the funnel
  * answers 403 {locked:true} to everyone except allowlisted admins (their
  * console still renders live numbers).

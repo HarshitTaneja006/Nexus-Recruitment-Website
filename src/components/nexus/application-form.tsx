@@ -101,7 +101,7 @@ export function ApplicationForm({
     if (trimmed.length > 0 && trimmed.length < (q.minLength ?? 1)) {
       setFieldErrors((e) => ({
         ...e,
-        [q.id]: `Minimum ${q.minLength} characters — currently ${trimmed.length}`,
+        [q.id]: `Minimum ${q.minLength} characters - currently ${trimmed.length}`,
       }));
     } else {
       setFieldErrors((e) => {
@@ -179,7 +179,7 @@ export function ApplicationForm({
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0 || !linksOk) {
       toast.error("VALIDATION_FAILED", {
-        description: "Some answers are missing or too short — scroll to the highlighted fields.",
+        description: "Some answers are missing or too short - scroll to the highlighted fields.",
       });
       scrollToFirstError(errors);
       return;
@@ -211,7 +211,7 @@ export function ApplicationForm({
           scrollToFirstError(data.fields);
         }
         toast.error("VALIDATION_FAILED", {
-          description: "The server flagged some fields — your answers are safe, fix and retry.",
+          description: "The server flagged some fields - your answers are safe, fix and retry.",
         });
         return;
       }
@@ -221,11 +221,11 @@ export function ApplicationForm({
       }
       throw new Error(`status ${res.status}`);
     } catch {
-      // Data remains in localStorage + server draft — nothing is lost.
+      // Data remains in localStorage + server draft - nothing is lost.
       setSaveState("error");
       setSaveTick((t) => t + 1);
       toast.error("TRANSMISSION_FAILED", {
-        description: "Could not reach the server. Your answers are saved locally — just retry.",
+        description: "Could not reach the server. Your answers are saved locally - just retry.",
       });
     } finally {
       setSubmitting(false);
@@ -254,11 +254,11 @@ export function ApplicationForm({
 
   return (
     <div ref={formTopRef} className="space-y-6">
-      {/* whoami — identity derived from email */}
+      {/* whoami - identity derived from email */}
       <section className="terminal-panel" aria-label="Your identity, derived from your email">
         <div className="flex items-center justify-between border-b border-border bg-secondary/50 px-4 py-2">
           <span className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground">
-            $ whoami — derived from your email
+            $ whoami - derived from your email
           </span>
           <AutosaveIndicator
             key={saveTick}
@@ -338,7 +338,7 @@ export function ApplicationForm({
         </div>
       </section>
 
-      {/* whatsapp — required for panel contact */}
+      {/* whatsapp - required for panel contact */}
       <section className="terminal-panel" aria-label="WhatsApp contact number">
         <div className="flex items-center justify-between border-b border-border bg-secondary/50 px-4 py-2">
           <span className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground">
@@ -353,7 +353,7 @@ export function ApplicationForm({
             <MessageCircle className="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
             WHATSAPP NUMBER <span className="text-primary">*</span>
             <span className="ml-2 hidden text-[10px] text-muted-foreground sm:inline">
-              slot confirmations & quick calls — never spammed
+              slot confirmations & quick calls - never spammed
             </span>
           </label>
           <input
@@ -384,7 +384,7 @@ export function ApplicationForm({
             </p>
           ) : (
             <p id="whatsapp-hint" className="mt-2 font-mono text-[10px] text-muted-foreground/60">
-              include country code if possible — e.g. +91 for India
+              include country code if possible - e.g. +91 for India
             </p>
           )}
         </div>
@@ -420,11 +420,11 @@ export function ApplicationForm({
             )}
           >
             <option value="" disabled>
-              — select department —
+              - select department -
             </option>
             {DEPARTMENTS.map((d) => (
               <option key={d.id} value={d.id}>
-                d {d.dir}/ — {d.name}
+                d {d.dir}/ - {d.name}
               </option>
             ))}
           </select>
@@ -439,7 +439,7 @@ export function ApplicationForm({
       {/* common questions */}
       <QuestionSection
         id="common"
-        title={`$ cat common_kernel.q — everyone answers these`}
+        title={`$ cat common_kernel.q - everyone answers these`}
         questions={COMMON_QUESTIONS}
         answers={answers}
         errors={fieldErrors}
@@ -459,7 +459,7 @@ export function ApplicationForm({
       {dept ? (
         <QuestionSection
           id={dept.id}
-          title={`d ${dept.dir}/ — ${dept.name} questions`}
+          title={`d ${dept.dir}/ - ${dept.name} questions`}
           accent={dept.accentClass}
           questions={dept.questions}
           answers={answers}
@@ -564,7 +564,7 @@ export function ApplicationForm({
                 <p>
                   Transmit your application to{' '}
                   <span className="font-mono text-primary">
-                    d {dept?.dir}/ — {dept?.name}
+                    d {dept?.dir}/ - {dept?.name}
                   </span>
                   ?
                 </p>
@@ -696,7 +696,7 @@ function QuestionSection({
                     </span>
                   ) : belowMin ? (
                     <span className="font-mono text-[10px] text-warn">
-                      keep typing — {q.minLength! - len} more characters
+                      keep typing - {q.minLength! - len} more characters
                     </span>
                   ) : len >= (q.minLength ?? Infinity) ? (
                     <span className="ok-text font-mono text-[10px]">✓ ok</span>

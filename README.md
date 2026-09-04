@@ -1,6 +1,6 @@
 # NEXUS Recruitments '26 ⚡
 
-> **Terminal-Themed Recruitment & Evaluation Portal for NEXUS — VIT Chennai's premier builder club.**
+> **Terminal-Themed Recruitment & Evaluation Portal for NEXUS - VIT Chennai's premier builder club.**
 
 A high-performance, developer-first recruitment platform featuring real-time autosave drafts, strict institutional authentication, interactive interview scheduling with conflict detection, admin evaluation dashboards, live drive analytics, and an integrated SMTP notification outbox.
 
@@ -202,4 +202,4 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## 📄 License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

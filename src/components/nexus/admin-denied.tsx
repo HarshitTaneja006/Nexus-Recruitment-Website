@@ -12,7 +12,7 @@ export function AdminDenied({ email }: { email: string }) {
         <div className="terminal-panel w-full p-8">
           <Lock className="mx-auto h-10 w-10 text-destructive" aria-hidden="true" />
           <h1 className="mt-4 font-mono text-xl font-bold tracking-wide text-destructive">
-            403 — NOT_ON_ALLOWLIST
+            403 - NOT_ON_ALLOWLIST
           </h1>
           <p className="mt-3 break-all font-mono text-xs text-muted-foreground">
             signed in as: <span className="text-foreground">{email}</span>

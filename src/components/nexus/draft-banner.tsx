@@ -4,7 +4,7 @@ import { Trash2, X } from "lucide-react";
 
 /**
  * Informs the student that their previous answers were restored.
- * Data recovery is automatic — the banner just makes it visible and
+ * Data recovery is automatic - the banner just makes it visible and
  * offers an explicit DISCARD for fresh starts.
  */
 export function DraftBanner({
@@ -35,7 +35,7 @@ export function DraftBanner({
       <p className="font-mono text-[11px] leading-relaxed text-foreground">
         <span className="ok-text">DRAFT_RECOVERED</span>{" "}
         <span className="text-muted-foreground">
-          — restored your in-progress answers ({source === "server" ? "server mirror" : "this device"})
+          - restored your in-progress answers ({source === "server" ? "server mirror" : "this device"})
           saved {when}. Nothing was lost.
         </span>
       </p>

@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Glyph rain backdrop — Nexus-style digital rain in the brand's
+ * Glyph rain backdrop - Nexus-style digital rain in the brand's
  * phosphor-blue palette. Fully local, pauses when the tab is hidden
  * and renders a single static frame for reduced-motion users.
  */

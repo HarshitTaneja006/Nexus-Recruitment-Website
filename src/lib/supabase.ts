@@ -11,7 +11,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  *   NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
  *   SUPABASE_SERVICE_ROLE_KEY=<service-role-key>   (server-side only)
  *
- * The service-role key bypasses RLS and must never reach the browser —
+ * The service-role key bypasses RLS and must never reach the browser -
  * this module is only imported from server code.
  */
 

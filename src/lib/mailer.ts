@@ -1,5 +1,5 @@
 /**
- * NEXUS mail delivery — nodemailer over SMTP.
+ * NEXUS mail delivery - nodemailer over SMTP.
  *
  * The outbox drain worker claims QUEUED rows and hands each to sendMail():
  *  - SMTP_HOST set            → live delivery through the configured relay
@@ -10,7 +10,7 @@
  *
  * Configuration (all optional except SMTP_HOST for live mode):
  *  SMTP_HOST    e.g. smtp.gmail.com · in-v3.mailjet.com · localhost
- *  SMTP_PORT    default 587 (STARTTLS) — use 465 with SMTP_SECURE=true
+ *  SMTP_PORT    default 587 (STARTTLS) - use 465 with SMTP_SECURE=true
  *  SMTP_SECURE  "true" for implicit TLS (465), default STARTTLS/opportunistic
  *  SMTP_USER    auth user (omit for relays that don't require auth)
  *  SMTP_PASS    auth password
@@ -21,12 +21,12 @@ import nodemailer from "nodemailer";
 const MAIL_FROM =
   process.env.MAIL_FROM ?? "NEXUS Recruitments <recruitment@nexusvit.in>";
 
-/** Capability hint for the console — never leaks credentials. */
+/** Capability hint for the console - never leaks credentials. */
 export function getMailProvider(): "smtp" | "sandbox" {
   return process.env.SMTP_HOST ? "smtp" : "sandbox";
 }
 
-/** Cached transport — reused across drains in the same server process. */
+/** Cached transport - reused across drains in the same server process. */
 let cachedTransport: nodemailer.Transporter | null = null;
 
 function getTransport(): nodemailer.Transporter {
@@ -50,7 +50,7 @@ function getTransport(): nodemailer.Transporter {
 }
 
 /**
- * Deliver one message. Throws on failure — the caller (drain worker) is
+ * Deliver one message. Throws on failure - the caller (drain worker) is
  * responsible for marking the outbox row FAILED with the error message.
  */
 export async function sendMail(params: {

@@ -14,14 +14,14 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
-  /** max rows to claim per drain (FIFO) — keeps a single request bounded */
+  /** max rows to claim per drain (FIFO) - keeps a single request bounded */
   limit: z.number().int().min(1).max(100).optional(),
   /** skip the automatic deadline-near draft reminder sweep */
   skipSweep: z.boolean().optional(),
 });
 
 /**
- * POST /api/admin/notifications/drain — the outbox worker.
+ * POST /api/admin/notifications/drain - the outbox worker.
  *
  * Before claiming, it runs the deadline-near DRAFT reminder sweep (once
  * per 48h per student, automatically whenever the drain executes inside
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
   const provider = getMailProvider();
 
   try {
-    // Deadline-near reminder sweep — idempotent (48h dedupe per student).
+    // Deadline-near reminder sweep - idempotent (48h dedupe per student).
     let draftReminders = 0;
     if (!parsed.data.skipSweep) {
       try {
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
 
     for (const row of claimed) {
       if (provider === "sandbox") {
-        // sandbox provider: nothing to call — accept the hand-off
+        // sandbox provider: nothing to call - accept the hand-off
         await markNotificationSent(row.id);
         delivered += 1;
         continue;

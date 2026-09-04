@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/admin/applications/export?department=&status=&q=&order=
- * CSV download (admin only) — respects the console's active filters so
+ * CSV download (admin only) - respects the console's active filters so
  * what you see on screen is what lands in the file.
  */
 export async function GET(req: NextRequest) {

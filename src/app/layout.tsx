@@ -22,9 +22,9 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://nexus.runs-on.dev"
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "NEXUS // RECRUITMENTS '26 — VIT Chennai",
+  title: "NEXUS // RECRUITMENTS '26 - VIT Chennai",
   description:
-    "Recruitment drive of NEXUS — the Student Tech Collective at VIT Chennai. Innovate. Lead. Build. Sign in with your VIT student email and apply to Technical, Management or Design and Social Media.",
+    "Recruitment drive of NEXUS - the Student Tech Collective at VIT Chennai. Innovate. Lead. Build. Sign in with your VIT student email and apply to Technical, Management or Design and Social Media.",
   keywords: [
     "NEXUS",
     "VIT Chennai",
@@ -56,7 +56,7 @@ export const metadata: Metadata = {
         url: "/og.png",
         width: 1344,
         height: 768,
-        alt: "NEXUS Recruitments '26 — terminal banner with ./initiate_application prompt",
+        alt: "NEXUS Recruitments '26 - terminal banner with ./initiate_application prompt",
       },
     ],
   },

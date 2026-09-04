@@ -57,7 +57,7 @@ export function SubmittedView({
       const data = (await res.json()) as { application: ApplicationRecord | null };
       if (data.application) setApplication((prev) => ({ ...prev, ...data.application }));
     } catch {
-      /* offline — last known status stays on screen */
+      /* offline - last known status stays on screen */
     }
   }, []);
 
@@ -146,7 +146,7 @@ export function SubmittedView({
             APPLICATION_COMMITTED
           </h1>
           <p className="mt-2 font-sans text-sm text-muted-foreground">
-            Your transmission reached <span className="text-primary">d {dept?.dir}/</span> — domain
+            Your transmission reached <span className="text-primary">d {dept?.dir}/</span> - domain
             leads have it in their review queue.
           </p>
 
@@ -154,9 +154,9 @@ export function SubmittedView({
             {[
               ["APP_ID", application.id],
               ["SUBMITTED_AT", submittedAt],
-              ["DOMAIN", `d ${dept?.dir}/ — ${dept?.name ?? application.department}`],
+              ["DOMAIN", `d ${dept?.dir}/ - ${dept?.name ?? application.department}`],
               ["APPLICANT", `${application.fullName} · ${formatYearOfStudy(application.yearOfStudy)}`],
-              ["WHATSAPP", application.whatsapp?.trim() || "— not on file (edit & re-submit to add) —"],
+              ["WHATSAPP", application.whatsapp?.trim() || "- not on file (edit & re-submit to add) -"],
             ].map(([k, v]) => (
               <div key={k} className="flex items-center justify-between gap-3 bg-card px-3 py-2">
                 <dt className="flex shrink-0 items-center gap-1 font-mono text-[10px] tracking-[0.18em] text-muted-foreground">
@@ -412,7 +412,7 @@ function application_footer_note(status: string) {
   const meta = getStatusMeta(status);
   return (
     <p className={cn("border-t border-border px-4 py-2 font-mono text-[9px] tracking-[0.2em]", meta.textClass)}>
-      decision recorded{meta.label === "ACCEPTED" ? " — check your inbox" : ""} · pipeline archived
+      decision recorded{meta.label === "ACCEPTED" ? " - check your inbox" : ""} · pipeline archived
     </p>
   );
 }
@@ -491,12 +491,12 @@ function InterviewCard({ application }: { application: ApplicationRecord }) {
             </p>
             <p className="mt-0.5 font-sans text-xs text-muted-foreground">
               {modeLabel === "IN_PERSON"
-                ? "On campus — venue & panel in the core message below."
+                ? "On campus - venue & panel in the core message below."
                 : modeLabel === "PHONE"
-                  ? "We'll call you — keep your phone reachable."
+                  ? "We'll call you - keep your phone reachable."
                   : modeLabel === "GOOGLE_MEET"
-                    ? "Online — the meet link is in the core message below."
-                    : "Slot confirmed — details in the core message below."}
+                    ? "Online - the meet link is in the core message below."
+                    : "Slot confirmed - details in the core message below."}
             </p>
           </div>
         </div>
@@ -539,7 +539,7 @@ function InterviewCard({ application }: { application: ApplicationRecord }) {
 }
 
 /**
- * Compact audit trail for the student — every review event the core team
+ * Compact audit trail for the student - every review event the core team
  * has recorded, newest first. Hidden until there is history to show.
  */
 function HistoryLog({ events }: { events: ApplicationRecord["statusHistory"] }) {

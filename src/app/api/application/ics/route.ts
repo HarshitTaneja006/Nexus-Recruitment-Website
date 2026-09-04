@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/application/ics — student-gated calendar export for their
+ * GET /api/application/ics - student-gated calendar export for their
  * scheduled interview. Returns an RFC 5545 .ics file (with a 30-minute
  * reminder alarm) so students can drop the slot into any calendar app.
  * 404 when there is no live interview slot on the file (slot attaches to SHORTLISTED).
@@ -33,11 +33,11 @@ function icsStamp(iso: string): string {
 function modeLocation(mode: string | null): string {
   switch (mode) {
     case "IN_PERSON":
-      return "VIT Chennai campus — venue in your core message";
+      return "VIT Chennai campus - venue in your core message";
     case "PHONE":
-      return "Phone call — keep your phone reachable";
+      return "Phone call - keep your phone reachable";
     case "GOOGLE_MEET":
-      return "Google Meet — link in your core message";
+      return "Google Meet - link in your core message";
     default:
       return "Details in your NEXUS core message";
   }
@@ -73,7 +73,7 @@ export async function GET() {
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL ?? "https://nexus.runs-on.dev";
     const description = [
-      `NEXUS Recruitments '26 — ${dept?.name ?? app.department} interview.`,
+      `NEXUS Recruitments '26 - ${dept?.name ?? app.department} interview.`,
       modeLine,
       "Panel: NEXUS core team, VIT Chennai.",
       `Full details live in your application status: ${siteUrl}/apply`,
@@ -90,7 +90,7 @@ export async function GET() {
       `DTSTAMP:${icsStamp(new Date().toISOString())}`,
       `DTSTART:${icsStamp(start.toISOString())}`,
       `DTEND:${icsStamp(end.toISOString())}`,
-      `SUMMARY:${icsEscape(`NEXUS Interview — ${dept?.name ?? app.department}`)}`,
+      `SUMMARY:${icsEscape(`NEXUS Interview - ${dept?.name ?? app.department}`)}`,
       `DESCRIPTION:${icsEscape(description)}`,
       `LOCATION:${icsEscape(modeLocation(app.interviewMode))}`,
       `URL:${siteUrl}/apply`,
@@ -99,7 +99,7 @@ export async function GET() {
       "BEGIN:VALARM",
       `TRIGGER:-PT${INTERVIEW_DURATION_MIN}M`,
       "ACTION:DISPLAY",
-      `DESCRIPTION:${icsEscape("NEXUS interview in 30 minutes — good luck, builder.")}`,
+      `DESCRIPTION:${icsEscape("NEXUS interview in 30 minutes - good luck, builder.")}`,
       "END:VALARM",
       "END:VEVENT",
       "END:VCALENDAR",

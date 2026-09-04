@@ -22,28 +22,28 @@ export async function generateMetadata({
   return {
     title: "LIVE_STATS // NEXUS Recruitments '26",
     description:
-      "Live, privacy-safe recruitment funnel for NEXUS VIT Chennai — per-department review pipeline, drive velocity and cohort mix. Aggregates only, no personal data.",
+      "Live, privacy-safe recruitment funnel for NEXUS VIT Chennai - per-department review pipeline, drive velocity and cohort mix. Aggregates only, no personal data.",
     openGraph: {
       title: dept
-        ? `NEXUS stats — d ${dept.dir}/ · live funnel`
-        : "NEXUS stats — the live funnel",
+        ? `NEXUS stats - d ${dept.dir}/ · live funnel`
+        : "NEXUS stats - the live funnel",
       description: dept
-        ? `Live ${dept.name} pipeline for the NEXUS '26 drive at VIT Chennai — aggregates only, zero PII.`
-        : "Live, privacy-safe recruitment funnel for the NEXUS '26 drive at VIT Chennai — aggregates only, zero PII.",
+        ? `Live ${dept.name} pipeline for the NEXUS '26 drive at VIT Chennai - aggregates only, zero PII.`
+        : "Live, privacy-safe recruitment funnel for the NEXUS '26 drive at VIT Chennai - aggregates only, zero PII.",
       images: [{ url: ogPath, width: 1200, height: 630, alt: "NEXUS live recruitment stats" }],
     },
     twitter: {
       card: "summary_large_image",
       title: dept
-        ? `NEXUS stats — d ${dept.dir}/ · live funnel`
-        : "NEXUS stats — the live funnel",
+        ? `NEXUS stats - d ${dept.dir}/ · live funnel`
+        : "NEXUS stats - the live funnel",
       images: [ogPath],
     },
   };
 }
 
 export default async function StatsPage() {
-  // The funnel is SEALED unless core unlocked it — admins always see it.
+  // The funnel is SEALED unless core unlocked it - admins always see it.
   const unlocked = (await isStatsPublic()) || Boolean(await getAdminSession());
 
   return (

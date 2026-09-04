@@ -5,7 +5,7 @@
  *   firstname.lastname<yearOfJoining>@vitstudent.ac.in
  *   e.g.  harshit.taneja2023@vitstudent.ac.in
  *
- * Everything (name, year of study) is DERIVED from the email — students
+ * Everything (name, year of study) is DERIVED from the email - students
  * never type it manually, which keeps records clean and verifiable.
  */
 
@@ -24,7 +24,7 @@ export interface VitEmailProfile {
   fullName: string;
   /** Year the student joined VIT, e.g. 2023 */
   joinYear: number;
-  /** 1..5 — derived from joinYear against the current academic year */
+  /** 1..5 - derived from joinYear against the current academic year */
   yearOfStudy: number;
 }
 

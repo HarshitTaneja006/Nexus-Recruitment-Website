@@ -16,7 +16,7 @@ export function NonVitPanel({ email }: { email: string }) {
             aria-hidden="true"
           />
           <h1 className="mt-4 font-mono text-xl font-bold tracking-wide text-warn">
-            ACCESS_DENIED — NON_VIT_EMAIL
+            ACCESS_DENIED - NON_VIT_EMAIL
           </h1>
           <p className="mt-3 break-all font-mono text-xs text-muted-foreground">
             signed in as: <span className="text-foreground">{email}</span>
