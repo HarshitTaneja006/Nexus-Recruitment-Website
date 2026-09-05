@@ -153,7 +153,7 @@ export function renderEmailHtml(subject: string, bodyText: string): string {
       <p style="margin:0 0 14px;font-size:11px;letter-spacing:3px;color:#60a5fa;">NEXUS<span style="color:#d7e2ee;">_</span> <span style="color:#7d8fa5;">// RECRUITMENTS '26 · VIT CHENNAI</span></p>
       <p style="margin:0 0 16px;font-size:15px;font-weight:700;color:#d7e2ee;">${esc(subject)}</p>
       <pre style="margin:0;white-space:pre-wrap;font-family:inherit;font-size:13px;line-height:1.7;color:#c4d2e2;">${esc(bodyText)}</pre>
-      <p style="margin:18px 0 0;padding-top:14px;border-top:1px solid #17263c;font-size:10px;letter-spacing:2px;color:#7d8fa5;">STATUS PAGE → nexus.runs-on.dev/apply</p>
+      <p style="margin:18px 0 0;padding-top:14px;border-top:1px solid #17263c;font-size:10px;letter-spacing:2px;color:#7d8fa5;">STATUS PAGE → nexusrecruitment.vercel.app/apply</p>
     </div>
   </div>
 </body></html>`;
