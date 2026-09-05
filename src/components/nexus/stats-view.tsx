@@ -827,7 +827,7 @@ export function StatsView() {
                       key={stage}
                       label={
                         stage === "DECISION"
-                          ? "DECISION (accepted + waitlist + rejected)"
+                          ? "DECISION (accepted + rejected)"
                           : meta?.label ?? stage
                       }
                       count={count}

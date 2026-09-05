@@ -4,23 +4,23 @@
  * Admins move applications along this flow from the review console;
  * students see a live pipeline of the same stages on their receipt.
  *
- *   SUBMITTED → SHORTLISTED → DECISION
- *                                ├→ ACCEPTED
- *                                ├→ WAITLISTED
- *                                └→ REJECTED
+ *   SUBMITTED → SHORTLISTED → INTERVIEWED → DECISION
+ *                                               ├→ ACCEPTED
+ *                                               └→ REJECTED
  *
  * Interview slots (interviewAt/interviewMode) attach to SHORTLISTED -
- * shortlisting doubles as "invited to interview".
+ * shortlisting doubles as "invited to interview"; INTERVIEWED marks the
+ * interview as done and the file as awaiting a final decision.
  *
- * Legacy aliases (IN_REVIEW / NEEDS_INFO / INTERVIEW) exist for DISPLAY
- * ONLY: old audit-trail entries keep rendering truthfully, but they are
- * not selectable states and the API rejects them.
+ * Legacy aliases (IN_REVIEW / NEEDS_INFO / INTERVIEW / WAITLISTED) exist for
+ * DISPLAY ONLY: old audit-trail entries keep rendering truthfully, but they
+ * are not selectable states and the API rejects them.
  */
 
 export const APPLICATION_STATUSES = [
   "SUBMITTED",
   "SHORTLISTED",
-  "WAITLISTED",
+  "INTERVIEWED",
   "ACCEPTED",
   "REJECTED",
 ] as const;
@@ -35,7 +35,12 @@ export function isApplicationStatus(v: unknown): v is ApplicationStatus {
 }
 
 /** Historic statuses that may still appear inside statusHistory JSON. */
-export const LEGACY_STATUSES = ["IN_REVIEW", "NEEDS_INFO", "INTERVIEW"] as const;
+export const LEGACY_STATUSES = [
+  "IN_REVIEW",
+  "NEEDS_INFO",
+  "INTERVIEW",
+  "WAITLISTED",
+] as const;
 
 interface StatusMeta {
   /** short label shown in badges */
@@ -71,14 +76,14 @@ export const STATUS_META: Record<ApplicationStatus, StatusMeta> = {
       "You cleared the first cut. Shortlisted - interview details (if any) appear in the slot card below.",
     adminHint: "cleared screening - attach the interview slot + mode here",
   },
-  WAITLISTED: {
-    label: "WAITLISTED",
-    textClass: "text-warn",
-    chipClass: "border-warn/50 bg-warn/10 text-warn",
-    barClass: "bg-warn",
+  INTERVIEWED: {
+    label: "INTERVIEWED",
+    textClass: "text-violet-400",
+    chipClass: "border-violet-400/50 bg-violet-400/10 text-violet-400",
+    barClass: "bg-violet-400",
     studentCopy:
-      "Strong application - you're on the reserve list. Seats may open as cycles settle.",
-    adminHint: "backup pool - may be pulled up later",
+      "Interview done. The panel is deliberating - your decision lands here and in your inbox.",
+    adminHint: "interview complete - deliberating, decide next",
   },
   ACCEPTED: {
     label: "ACCEPTED",
@@ -130,20 +135,28 @@ export const LEGACY_STATUS_META: Record<string, StatusMeta> = {
     studentCopy: "",
     adminHint: "legacy stage - resolved to SHORTLISTED",
   },
+  WAITLISTED: {
+    label: "WAITLISTED",
+    textClass: "text-warn",
+    chipClass: "border-warn/50 bg-warn/10 text-warn",
+    barClass: "bg-warn",
+    studentCopy: "",
+    adminHint: "legacy stage - retired, no longer selectable",
+  },
 };
 
 /** Ordered pipeline stages for the student-facing progress visualization.
- *  The final stage is a virtual "DECISION" placeholder (ACCEPTED | WAITLISTED | REJECTED). */
+ *  The final stage is a virtual "DECISION" placeholder (ACCEPTED | REJECTED). */
 export const STATUS_PIPELINE: string[] = [
   "SUBMITTED",
   "SHORTLISTED",
+  "INTERVIEWED",
   "DECISION",
 ];
 
 /** Terminal statuses that end the pipeline. */
 export const TERMINAL_STATUSES: ApplicationStatus[] = [
   "ACCEPTED",
-  "WAITLISTED",
   "REJECTED",
 ];
 
@@ -152,12 +165,13 @@ export function isTerminalStatus(s: string): boolean {
 }
 
 /**
- * Index of the app's current stage on the pipeline (0..2).
+ * Index of the app's current stage on the pipeline (0..3).
  * Legacy review-stage statuses map onto SUBMITTED (they were branches of
  * screening, not their own step); terminals map to the final DECISION stage.
  */
 export function pipelineStageIndex(status: string): number {
   if (isTerminalStatus(status)) return STATUS_PIPELINE.length - 1;
+  if (status === "INTERVIEWED") return 2;
   if (status === "SHORTLISTED") return 1;
   return 0;
 }

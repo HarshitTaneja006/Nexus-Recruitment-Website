@@ -31,8 +31,10 @@ const OK = "#4ade80";
 const STATUS_HEX: Record<string, string> = {
   SUBMITTED: "#38bdf8",
   SHORTLISTED: "#34d399",
+  INTERVIEWED: "#a78bfa",
   ACCEPTED: "#4ade80",
   REJECTED: "#ff5f57",
+  // legacy audit-trail statuses (display-only)
   WAITLISTED: "#facc15",
   // legacy audit-trail statuses (display-only)
   IN_REVIEW: "#fbbf24",
