@@ -24,6 +24,8 @@ export interface ApplicationRecord {
   links: Links;
   status: string;
   statusNote: string | null;
+  /** internal core-team note - admin-only, never sent to the student */
+  panelNote: string | null;
   statusUpdatedAt: string | null;
   reviewedBy: string | null;
   interviewAt: string | null;
@@ -162,6 +164,8 @@ export async function updateApplicationStatus(params: {
   id: string;
   status: string;
   note?: string | null;
+  /** admin-only internal note - omitted (undefined) leaves it untouched */
+  panelNote?: string | null;
   reviewedBy: string;
   /** interview slot (attaches to SHORTLISTED) */
   interviewAt?: string | null;
@@ -193,6 +197,7 @@ export async function updateApplicationStatus(params: {
         .update({
           status: params.status,
           status_note: params.note ?? null,
+          ...(params.panelNote !== undefined ? { panel_note: params.panelNote } : {}),
           status_updated_at: nowISO,
           reviewed_by: params.reviewedBy,
           interview_at: params.interviewAt ?? null,
@@ -225,6 +230,7 @@ export async function updateApplicationStatus(params: {
     data: {
       status: params.status,
       statusNote: params.note ?? null,
+      ...(params.panelNote !== undefined ? { panelNote: params.panelNote } : {}),
       statusUpdatedAt: new Date(),
       reviewedBy: params.reviewedBy,
       interviewAt: params.interviewAt ? new Date(params.interviewAt) : null,
@@ -1023,6 +1029,13 @@ function mapApplicationRow(row: Record<string, unknown>): ApplicationRecord {
       row.statusNote === null || row.statusNote === undefined
         ? null
         : String(row.statusNote ?? ""),
+    panelNote:
+      row.panelNote === null ||
+      row.panelNote === undefined ||
+      row.panel_note === null ||
+      row.panel_note === undefined
+        ? null
+        : String(row.panelNote ?? row.panel_note ?? ""),
     statusUpdatedAt: (() => {
       const raw = row.statusUpdatedAt ?? row.status_updated_at;
       if (!raw) return null;

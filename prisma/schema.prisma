@@ -41,6 +41,8 @@ model Application {
   links                   Json      @default("{}")
   status                  String    @default("SUBMITTED")
   statusNote              String?   @map("status_note")
+  /** internal core-team note - never exposed to the student */
+  panelNote               String?   @map("panel_note")
   statusUpdatedAt         DateTime? @map("status_updated_at")
   reviewedBy              String?   @map("reviewed_by")
   interviewAt             DateTime? @map("interview_at")

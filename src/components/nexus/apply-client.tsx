@@ -171,6 +171,7 @@ export function ApplyClient({ profile }: { profile: VitEmailProfile }) {
         links: { github: "", linkedin: "", portfolio: "" },
         status: "SUBMITTED",
         statusNote: null,
+        panelNote: null,
         statusUpdatedAt: null,
         reviewedBy: null,
         interviewAt: null,

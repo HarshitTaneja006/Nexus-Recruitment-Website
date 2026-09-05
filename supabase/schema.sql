@@ -20,6 +20,7 @@ create table if not exists public.applications (
   links         jsonb not null default '{}'::jsonb,
   status        text not null default 'SUBMITTED',
   status_note   text,
+  panel_note    text,
   status_updated_at timestamptz,
   reviewed_by   text,
   interview_at  timestamptz,
@@ -36,6 +37,7 @@ create table if not exists public.applications (
 -- Migration helpers for pre-existing deployments (safe to re-run anytime)
 alter table public.applications add column if not exists whatsapp text not null default '';
 alter table public.applications add column if not exists status_note text;
+alter table public.applications add column if not exists panel_note text;
 alter table public.applications add column if not exists status_updated_at timestamptz;
 alter table public.applications add column if not exists reviewed_by text;
 alter table public.applications add column if not exists interview_at timestamptz;

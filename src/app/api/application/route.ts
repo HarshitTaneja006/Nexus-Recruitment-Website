@@ -18,6 +18,12 @@ import { getDepartment } from "@/lib/departments";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/** panelNote is admin-only - strip it from every student-facing payload. */
+function stripPanelNote(application: Record<string, unknown>) {
+  const { panelNote: _omitted, ...studentView } = application;
+  return studentView;
+}
+
 /** GET /api/application - the signed-in student's submitted application. */
 export async function GET() {
   const session = await getAuthSession();
@@ -29,7 +35,10 @@ export async function GET() {
   }
   const email = session.user.email.trim().toLowerCase();
   const application = await findApplicationByEmail(email);
-  return NextResponse.json({ application });
+  if (!application) {
+    return NextResponse.json({ application });
+  }
+  return NextResponse.json({ application: stripPanelNote(application) });
 }
 
 /** POST /api/application - submit (or re-submit before deadline) the form. */
@@ -138,7 +147,7 @@ export async function POST(req: NextRequest) {
       console.error("[api/application] receipt delivery failed:", notifyErr);
     }
 
-    return NextResponse.json({ application }, { status: 201 });
+    return NextResponse.json({ application: stripPanelNote(application) }, { status: 201 });
   } catch (err) {
     console.error("[api/application] submit failed:", err);
     return NextResponse.json(

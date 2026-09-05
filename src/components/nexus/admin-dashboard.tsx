@@ -1256,6 +1256,7 @@ function DetailDialog({
   const dept = getDepartment(application?.department);
   const [draftStatus, setDraftStatus] = useState<string>("SUBMITTED");
   const [draftNote, setDraftNote] = useState("");
+  const [draftPanelNote, setDraftPanelNote] = useState("");
   const [slotDate, setSlotDate] = useState("");
   const [slotTime, setSlotTime] = useState("");
   const [slotMode, setSlotMode] = useState<string>("GOOGLE_MEET");
@@ -1275,6 +1276,7 @@ function DetailDialog({
       lastAppId.current = application.id;
       setDraftStatus(application.status);
       setDraftNote(application.statusNote ?? "");
+      setDraftPanelNote(application.panelNote ?? "");
       const parts = isoToIstParts(application.interviewAt);
       setSlotDate(parts.date);
       setSlotTime(parts.time);
@@ -1287,6 +1289,7 @@ function DetailDialog({
     application &&
     (draftStatus !== application.status ||
       draftNote !== (application.statusNote ?? "") ||
+      draftPanelNote !== (application.panelNote ?? "") ||
       slotDate !== isoToIstParts(application.interviewAt).date ||
       slotTime !== isoToIstParts(application.interviewAt).time ||
       (draftStatus === "SHORTLISTED" &&
@@ -1302,6 +1305,7 @@ function DetailDialog({
       ...application,
       status: draftStatus,
       statusNote: draftNote.trim() || null,
+      panelNote: draftPanelNote.trim() || null,
       statusUpdatedAt: new Date().toISOString(),
       interviewAt,
       interviewMode,
@@ -1323,6 +1327,7 @@ function DetailDialog({
         body: JSON.stringify({
           status: draftStatus,
           note: draftNote.trim() || null,
+          panelNote: draftPanelNote.trim() || null,
           interviewAt,
           interviewMode,
           ...(force ? { force: true } : {}),
@@ -1708,10 +1713,23 @@ function DetailDialog({
                 onChange={(e) => setDraftNote(e.target.value)}
                 maxLength={1000}
                 rows={2}
-                placeholder="note → student sees this (interview slot, feedback, next steps…)"
+                placeholder="note → this will be visible to the student (interview slot, feedback, next steps…)"
                 aria-label="Note visible to the student"
                 className="mt-2 w-full resize-y border border-input bg-background/80 px-2.5 py-2 font-mono text-[11px] leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
               />
+              <textarea
+                value={draftPanelNote}
+                onChange={(e) => setDraftPanelNote(e.target.value)}
+                maxLength={1000}
+                rows={2}
+                placeholder="panel note → admin only, never visible to the student (internal remarks, red flags…)"
+                aria-label="Panel note visible only to admins"
+                className="mt-2 w-full resize-y border border-warn/40 bg-warn/5 px-2.5 py-2 font-mono text-[11px] leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:border-warn focus:outline-none"
+              />
+              <p className="-mt-0.5 flex items-center gap-1 font-mono text-[9px] tracking-widest text-warn/80">
+                <Lock className="h-3 w-3" aria-hidden="true" />
+                PANEL_ONLY · never emailed · never on the student receipt
+              </p>
               <div className="mt-2 flex items-center justify-between gap-3">
                 <p className="text-[9px] text-muted-foreground/70">
                   {application.reviewedBy

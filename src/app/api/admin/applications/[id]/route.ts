@@ -20,6 +20,8 @@ const patchSchema = z.object({
   interviewMode: z.string().max(20).optional().nullable(),
   /** skip the interview-slot overlap guard (admin confirmed the double-booking) */
   force: z.boolean().optional(),
+  /** admin-only internal note - never shown or emailed to the student */
+  panelNote: z.string().max(1000).optional().nullable(),
 });
 
 /**
@@ -99,6 +101,12 @@ export async function PATCH(
       id,
       status: parsed.data.status,
       note: parsed.data.note?.trim() ? parsed.data.note.trim() : null,
+      panelNote:
+        parsed.data.panelNote === undefined
+          ? undefined
+          : parsed.data.panelNote?.trim()
+            ? parsed.data.panelNote.trim()
+            : null,
       reviewedBy: adminEmail,
       interviewAt,
       interviewMode,
