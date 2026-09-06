@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Copy,
+  ExternalLink,
   FileEdit,
   History,
   Home,
@@ -21,7 +22,7 @@ import {
 import { toast } from "sonner";
 import { getDepartment, COMMON_QUESTIONS } from "@/lib/departments";
 import { formatYearOfStudy } from "@/lib/vit";
-import { DRIVE_DEADLINE } from "@/lib/drive";
+import { DRIVE_DEADLINE, WHATSAPP_GROUP_LINK } from "@/lib/drive";
 import { useDriveOpen } from "@/lib/drive-client";
 import {
   STATUS_PIPELINE,
@@ -218,6 +219,49 @@ export function SubmittedView({
 
       {/* live status pipeline */}
       <StatusPipeline status={application.status} live={live} />
+
+      {/* whatsapp community - every applicant joins the group */}
+      <section
+        className="terminal-panel border-emerald-400/40"
+        aria-label="Join the WhatsApp group"
+      >
+        <div className="flex items-center justify-between border-b border-emerald-400/30 bg-emerald-400/10 px-4 py-2">
+          <span className="font-mono text-[10px] tracking-[0.2em] text-emerald-400">
+            $ join --whatsapp-group
+          </span>
+          <span className="font-mono text-[9px] tracking-widest text-emerald-400/70">
+            REQUIRED
+          </span>
+        </div>
+        <div className="flex flex-col items-center gap-5 p-5 sm:flex-row">
+          <img
+            src="/whatsapp-group-qr.svg"
+            alt="QR code to join the NEXUS recruitments WhatsApp group"
+            width={144}
+            height={144}
+            className="h-36 w-36 shrink-0 border border-border bg-white p-1"
+          />
+          <div className="min-w-0 text-center sm:text-left">
+            <p className="font-mono text-sm font-bold tracking-wide text-foreground">
+              JOIN_THE_WHATSAPP_GROUP
+            </p>
+            <p className="mt-1.5 font-sans text-xs leading-relaxed text-muted-foreground">
+              Scan the code or hit the button - drive announcements, slot calls
+              and results drop in the group first. Don&apos;t skip this.
+            </p>
+            <a
+              href={WHATSAPP_GROUP_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex h-10 items-center gap-2 border border-emerald-400 bg-emerald-400/15 px-5 font-mono text-xs font-bold tracking-widest text-emerald-400 transition-colors hover:bg-emerald-400 hover:text-[#05080d]"
+            >
+              <MessageCircle className="h-4 w-4" aria-hidden="true" />
+              JOIN_GROUP
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+            </a>
+          </div>
+        </div>
+      </section>
 
       {/* interview slot card */}
       {application.interviewAt ? <InterviewCard application={application} /> : null}

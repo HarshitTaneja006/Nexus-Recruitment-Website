@@ -14,6 +14,10 @@ export const DRIVE = {
 
 export const DRIVE_DEADLINE = new Date(DRIVE.deadlineISO);
 
+/** Post-submit community: every applicant is asked to join this group. */
+export const WHATSAPP_GROUP_LINK =
+  "https://chat.whatsapp.com/Dkq4i1lKX4e0UwwgRkndLw";
+
 export function isDriveOpen(now = new Date()): boolean {
   return now < DRIVE_DEADLINE;
 }

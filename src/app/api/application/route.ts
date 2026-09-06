@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth";
 import { isValidVitEmail, parseVitEmail } from "@/lib/vit";
-import { isDriveOpen } from "@/lib/drive";
+import { WHATSAPP_GROUP_LINK, isDriveOpen } from "@/lib/drive";
 import {
   findApplicationByEmail,
   submitApplication,
@@ -79,7 +79,8 @@ export async function POST(req: NextRequest) {
   }
 
   const { department, answers } = parsed.data;
-  const whatsapp = parsed.data.whatsapp.replace(/[ \-]/g, "");
+  // whatsappSchema already normalized this to plain 10 digits
+  const whatsapp = parsed.data.whatsapp;
 
   // Validate answers against this department's required questions
   const answersCheck = buildAnswersSchema(department).safeParse(answers);
@@ -128,6 +129,10 @@ export async function POST(req: NextRequest) {
         "  3. Any note from the core team lands in your inbox AND on your status page.",
         "",
         "You can edit and re-submit any time before the deadline - the new version overwrites this one.",
+        "",
+        "REQUIRED: join the applicants WhatsApp group - drive announcements,",
+        "slot calls and results drop there first:",
+        `  ${WHATSAPP_GROUP_LINK}`,
         "",
         "Not seeing our mails? Check spam / promotions and mark them not spam -",
         "interview slots and every update reach you by mail only.",

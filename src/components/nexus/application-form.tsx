@@ -83,7 +83,7 @@ export function ApplicationForm({
   const progress = useMemo(() => {
     const items: { min: number; value: string }[] = [
       { min: 1, value: department },
-      { min: 8, value: whatsapp.replace(/[^0-9]/g, "") },
+      { min: 10, value: whatsapp.replace(/[^0-9]/g, "") },
     ];
     for (const q of COMMON_QUESTIONS) {
       items.push({ min: q.minLength ?? 1, value: answers[q.id] ?? "" });
@@ -359,20 +359,22 @@ export function ApplicationForm({
           <input
             id="whatsapp-input"
             type="tel"
-            inputMode="tel"
+            inputMode="numeric"
             autoComplete="tel"
-            placeholder="+91 98765 43210"
+            placeholder="98765 43210"
             value={whatsapp}
             onChange={(e) => {
-              setWhatsapp(e.target.value);
-              if (waError) validateWhatsapp(e.target.value);
+              // digits only, capped at 10 - typing and pasting just work
+              const digits = e.target.value.replace(/[^0-9]/g, "").slice(0, 10);
+              setWhatsapp(digits);
+              if (waError) validateWhatsapp(digits);
             }}
             onBlur={(e) => {
               if (e.target.value.trim()) validateWhatsapp(e.target.value);
             }}
             aria-invalid={Boolean(waError)}
             aria-describedby={waError ? "whatsapp-error" : "whatsapp-hint"}
-            maxLength={20}
+            maxLength={10}
             className={cn(
               "h-11 w-full border bg-background/80 px-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none",
               waError ? "border-destructive" : "border-input focus:border-emerald-400"
@@ -384,7 +386,7 @@ export function ApplicationForm({
             </p>
           ) : (
             <p id="whatsapp-hint" className="mt-2 font-mono text-[10px] text-muted-foreground/60">
-              include country code if possible - e.g. +91 for India
+              10-digit mobile number, digits only
             </p>
           )}
         </div>

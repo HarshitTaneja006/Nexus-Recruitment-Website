@@ -31,19 +31,26 @@ export const departmentIdSchema = z
   .refine((v) => DEPARTMENTS.some((d) => d.id === v), "Unknown department");
 
 /**
- * WhatsApp number: 8–15 digits, optional leading +, and common separators.
- * Indian numbers (10 digits) pass as-is; +91… and other country codes too.
+ * WhatsApp number - digits only, exactly 10. Pasted spaces, dashes, a
+ * trunk 0 or a 91/+91 country code are stripped so any of those still
+ * land on the same 10 digits.
  */
+export function normalizeIndianWhatsapp(value: string): string | null {
+  let digits = value.replace(/[^0-9]/g, "");
+  if (digits.startsWith("91") && digits.length > 10) digits = digits.slice(2);
+  else if (digits.startsWith("0") && digits.length > 10) digits = digits.slice(1);
+  if (!/^[0-9]{10}$/.test(digits)) return null;
+  return digits;
+}
+
 export const whatsappSchema = z
   .string()
   .trim()
   .refine(
-    (v) => /^\+?[0-9][0-9 \-]{6,18}[0-9]$/.test(v) &&
-      /^[+]?[0-9 \-]+$/.test(v) &&
-      v.replace(/[^0-9]/g, "").length >= 8 &&
-      v.replace(/[^0-9]/g, "").length <= 15,
-    "Enter a valid WhatsApp number (8–15 digits, +country code allowed)"
-  );
+    (v) => normalizeIndianWhatsapp(v) !== null,
+    "Enter your 10-digit mobile number"
+  )
+  .transform((v) => normalizeIndianWhatsapp(v) as string);
 
 /** Answers must cover every required question of the chosen department. */
 export function buildAnswersSchema(departmentId: string) {

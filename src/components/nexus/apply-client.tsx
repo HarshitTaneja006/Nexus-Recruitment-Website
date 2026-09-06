@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { VitEmailProfile } from "@/lib/vit";
 import { DRIVE_DEADLINE } from "@/lib/drive";
+import { normalizeIndianWhatsapp } from "@/lib/validation";
 import { useDriveOpen } from "@/lib/drive-client";
 import type { ApplicationRecord } from "@/lib/storage";
 import { useApplicationStore, type ApplicationDraft } from "@/store/application-store";
@@ -206,7 +207,8 @@ export function ApplyClient({ profile }: { profile: VitEmailProfile }) {
     if (!application) return;
     useApplicationStore.getState().hydrateFrom({
       department: application.department,
-      whatsapp: application.whatsapp ?? "",
+      // older rows stored "+91…"/spaced numbers - reduce to plain 10 digits
+      whatsapp: normalizeIndianWhatsapp(application.whatsapp ?? "") ?? "",
       answers: application.answers,
       links: application.links,
       updatedAt: new Date().toISOString(),
