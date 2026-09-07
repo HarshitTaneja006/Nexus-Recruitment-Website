@@ -4,6 +4,7 @@ import { getAdminSession } from "@/lib/admin";
 import {
   listNotifications,
   listQueuedNotifications,
+  listQueuedNotificationsByIds,
   markNotificationSent,
   markNotificationFailed,
 } from "@/lib/storage";
@@ -18,16 +19,22 @@ const bodySchema = z.object({
   limit: z.number().int().min(1).max(100).optional(),
   /** skip the automatic deadline-near draft reminder sweep */
   skipSweep: z.boolean().optional(),
+  /** flush only these rows (outbox checkbox selection) - skips the sweep */
+  ids: z.array(z.string().min(6).max(64)).min(1).max(100).optional(),
 });
 
 /**
  * POST /api/admin/notifications/drain - the outbox worker.
  *
- * Before claiming, it runs the deadline-near DRAFT reminder sweep (once
+ * Full flush (no ids): runs the deadline-near DRAFT reminder sweep (once
  * per 48h per student, automatically whenever the drain executes inside
- * the reminder window) unless skipSweep is set.
+ * the reminder window) unless skipSweep is set, then claims QUEUED rows
+ * FIFO and delivers each via the configured provider.
  *
- * Claims QUEUED rows FIFO and delivers each via the configured provider:
+ * Selective flush ({ids}): delivers only the given QUEUED rows in order -
+ * the draft sweep is skipped so ticking boxes never side-effects the queue.
+ *
+ * Providers:
  *  - SMTP_HOST set (smtp)    → nodemailer delivery through the configured
  *                              relay (branded HTML + plain-text fallback)
  *  - SMTP_HOST unset (sandbox) → rows are marked SENT immediately; the
@@ -57,9 +64,11 @@ export async function POST(req: Request) {
   const provider = getMailProvider();
 
   try {
+    const selective = Boolean(parsed.data.ids?.length);
     // Deadline-near reminder sweep - idempotent (48h dedupe per student).
+    // Skipped for selective flushes: ticking boxes must not side-effect.
     let draftReminders = 0;
-    if (!parsed.data.skipSweep) {
+    if (!parsed.data.skipSweep && !selective) {
       try {
         draftReminders = await queueDraftReminderSweep();
       } catch (sweepErr) {
@@ -67,7 +76,9 @@ export async function POST(req: Request) {
       }
     }
 
-    const claimed = await listQueuedNotifications(parsed.data.limit ?? 25);
+    const claimed = selective
+      ? await listQueuedNotificationsByIds(parsed.data.ids!)
+      : await listQueuedNotifications(parsed.data.limit ?? 25);
     let delivered = 0;
     const failed: Array<{ id: string; email: string; reason: string }> = [];
 
@@ -96,9 +107,10 @@ export async function POST(req: Request) {
       }
     }
 
-    const { queued } = await listNotifications(1);
+    const { queued } = await listNotifications({ take: 1 });
     return NextResponse.json({
       provider,
+      selective,
       claimed: claimed.length,
       delivered,
       failed,

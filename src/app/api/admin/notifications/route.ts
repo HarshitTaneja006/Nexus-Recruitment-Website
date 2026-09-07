@@ -22,23 +22,31 @@ const actionSchema = z.object({
 });
 
 /**
- * GET /api/admin/notifications - outbox: latest 50 rows + queued counter +
- * delivery provider hint ("smtp" | "sandbox").
+ * GET /api/admin/notifications?status=&type=&q= - outbox rows (newest
+ * first) + global queued counter + delivery provider hint
+ * ("smtp" | "sandbox"). Only submission receipts auto-send; everything
+ * else waits here for a manual flush (all or selected).
  * PATCH /api/admin/notifications - {id, action:"send"} mark SENT ·
  * {id, action:"requeue"} put a FAILED row back in the queue ·
  * {all:true} drain-simulate everything queued.
  *
- * The real drain lives at POST /api/admin/notifications/drain (claims FIFO,
- * delivers via nodemailer/SMTP when SMTP_HOST is set, marks FAILED + reason on
- * error). The console below mirrors exactly that state machine.
+ * The real drain lives at POST /api/admin/notifications/drain (claims FIFO
+ * or an explicit id list, delivers via nodemailer/SMTP when SMTP_HOST is
+ * set, marks FAILED + reason on error). The console below mirrors exactly
+ * that state machine.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   const adminEmail = await getAdminSession();
   if (!adminEmail) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
+  const params = req.nextUrl.searchParams;
   try {
-    const outbox = await listNotifications(50);
+    const outbox = await listNotifications({
+      status: params.get("status") ?? undefined,
+      type: params.get("type") ?? undefined,
+      q: params.get("q")?.trim() || undefined,
+    });
     // capability hint for the console - never leaks the key itself
     const provider = getMailProvider();
     return NextResponse.json({ ...outbox, provider });

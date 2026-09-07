@@ -73,8 +73,8 @@ export async function sendMail(params: {
 }
 
 /**
- * Direct delivery for flows that must email immediately (submission
- * receipts, review actions) instead of queueing for the drain worker.
+ * Direct delivery for submission receipts - the only flow that emails
+ * immediately instead of queueing for manual flush from the outbox.
  * Sends via SMTP now and records the outcome as SENT/FAILED so the
  * outbox keeps its history - nothing ever sits in QUEUED.
  *
@@ -88,7 +88,7 @@ export async function deliverNotificationNow(params: {
   applicationId: string;
   email: string;
   fullName: string;
-  type: "STATUS_CHANGE" | "SUBMISSION_RECEIPT";
+  type: "SUBMISSION_RECEIPT";
   subject: string;
   text: string;
 }): Promise<void> {

@@ -874,23 +874,45 @@ function ConsoleTabButton({
 }
 
 /**
- * Notification outbox - every review commit queues a student-facing email
- * here. FLUSH_QUEUE now calls the real drain worker
- * (POST /api/admin/notifications/drain): rows are claimed FIFO and delivered
- * via SMTP when SMTP_HOST is set (sandbox mode marks SENT without a
- * provider call). Failed rows keep the provider reason and can be RETRY'd
- * (re-queued) and drained again.
+ * Notification outbox - manual flush console. Only submission receipts
+ * auto-send; every other mail (status changes, custom, draft reminders)
+ * waits here as QUEUED until core flushes it - everything at once
+ * (FLUSH_QUEUE) or just the ticked rows (FLUSH_SELECTED). The drain
+ * delivers via SMTP when SMTP_HOST is set (sandbox mode marks SENT
+ * without a provider call). Failed rows keep the provider reason and can
+ * be RETRY'd (re-queued) and drained again.
  */
+const OUTBOX_TYPES = [
+  "SUBMISSION_RECEIPT",
+  "STATUS_CHANGE",
+  "DRAFT_REMINDER",
+  "CUSTOM",
+] as const;
+
 function OutboxPanel() {
   const [items, setItems] = useState<NotificationRecord[] | null>(null);
   const [queued, setQueued] = useState(0);
   const [provider, setProvider] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [typeFilter, setTypeFilter] = useState<string>("");
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [checkedIds, setCheckedIds] = useState<string[]>([]);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/notifications", { cache: "no-store" });
+      const params = new URLSearchParams();
+      if (statusFilter) params.set("status", statusFilter);
+      if (typeFilter) params.set("type", typeFilter);
+      if (debouncedQuery) params.set("q", debouncedQuery);
+      const qs = params.toString();
+      const res = await fetch(
+        `/api/admin/notifications${qs ? `?${qs}` : ""}`,
+        { cache: "no-store" }
+      );
       if (!res.ok) throw new Error(String(res.status));
       const d = (await res.json()) as {
         items: NotificationRecord[];
@@ -900,14 +922,27 @@ function OutboxPanel() {
       setItems(d.items);
       setQueued(d.queued);
       setProvider(d.provider ?? null);
+      // drop ticks for rows that are no longer on screen
+      setCheckedIds((prev) =>
+        prev.filter((id) => d.items.some((n) => n.id === id && n.status === "QUEUED"))
+      );
     } catch {
       toast.error("OUTBOX_OFFLINE", { description: "Could not load the notification queue." });
     }
-  }, []);
+  }, [statusFilter, typeFilter, debouncedQuery]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // debounce the outbox grep box
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => setDebouncedQuery(query.trim()), 300);
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, [query]);
 
   const markSent = async (id: string) => {
     setBusyId(id);
@@ -927,23 +962,29 @@ function OutboxPanel() {
     }
   };
 
+  interface DrainResult {
+    provider: string;
+    claimed: number;
+    delivered: number;
+    failed: Array<{ email: string; reason: string }>;
+    queuedRemaining: number;
+  }
+
+  const drainRequest = async (body: Record<string, unknown>): Promise<DrainResult> => {
+    const res = await fetch("/api/admin/notifications/drain", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(String(res.status));
+    return (await res.json()) as DrainResult;
+  };
+
   const flushAll = async () => {
     if (queued === 0 || busyId) return;
     setBusyId("__all");
     try {
-      const res = await fetch("/api/admin/notifications/drain", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      if (!res.ok) throw new Error(String(res.status));
-      const d = (await res.json()) as {
-        provider: string;
-        claimed: number;
-        delivered: number;
-        failed: Array<{ email: string; reason: string }>;
-        queuedRemaining: number;
-      };
+      const d = await drainRequest({});
       if (d.failed.length > 0) {
         toast.error(`DRAIN_PARTIAL · ${d.delivered} SENT / ${d.failed.length} FAILED`, {
           description: d.failed[0]?.reason.slice(0, 120) ?? "Provider rejected the delivery.",
@@ -954,6 +995,32 @@ function OutboxPanel() {
             d.provider === "smtp"
               ? `SMTP delivery complete · ${d.queuedRemaining} left queued.`
               : `Sandbox delivery (set SMTP_HOST to go live) · ${d.queuedRemaining} left queued.`,
+        });
+      }
+      await load();
+    } catch {
+      toast.error("FLUSH_FAILED");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const flushSelected = async () => {
+    if (checkedIds.length === 0 || busyId) return;
+    setBusyId("__selected");
+    try {
+      const d = await drainRequest({ ids: checkedIds });
+      if (d.failed.length > 0) {
+        toast.error(`DRAIN_PARTIAL · ${d.delivered} SENT / ${d.failed.length} FAILED`, {
+          description: d.failed[0]?.reason.slice(0, 120) ?? "Provider rejected the delivery.",
+        });
+      } else if (d.delivered === 0) {
+        toast.warning("NOTHING_FLUSHED", {
+          description: "Those rows left QUEUED before the flush - rescanned the list.",
+        });
+      } else {
+        toast.success(`FLUSHED_SELECTED · ${d.delivered} SENT`, {
+          description: `${d.queuedRemaining} left queued.`,
         });
       }
       await load();
@@ -1062,8 +1129,18 @@ function OutboxPanel() {
           </button>
           <button
             type="button"
+            onClick={flushSelected}
+            disabled={checkedIds.length === 0 || Boolean(busyId)}
+            title="Deliver only the ticked rows"
+            className="inline-flex h-7 items-center gap-1.5 border border-emerald-400/50 bg-emerald-400/10 px-2.5 font-mono text-[9px] tracking-widest text-emerald-400 transition-colors enabled:hover:bg-emerald-400 enabled:hover:text-[#05080d] disabled:opacity-40"
+          >
+            <CheckSquare className="h-3 w-3" aria-hidden="true" />
+            {busyId === "__selected" ? "FLUSHING…" : `FLUSH_SELECTED (${checkedIds.length})`}
+          </button>
+          <button
+            type="button"
             onClick={flushAll}
-            disabled={queued === 0 || busyId === "__all"}
+            disabled={queued === 0 || Boolean(busyId)}
             className="inline-flex h-7 items-center gap-1.5 border border-primary/50 bg-primary/10 px-2.5 font-mono text-[9px] tracking-widest text-primary transition-colors enabled:hover:bg-primary enabled:hover:text-primary-foreground disabled:opacity-40"
           >
             <Send className="h-3 w-3" aria-hidden="true" />
@@ -1072,10 +1149,56 @@ function OutboxPanel() {
         </div>
       </div>
       <p className="border-b border-border/60 bg-background/40 px-4 py-1.5 font-mono text-[9px] leading-relaxed text-muted-foreground/60">
-        FLUSH_QUEUE runs the real drain: rows are claimed FIFO, delivered via SMTP when
-        SMTP_HOST is set (sandbox mode otherwise), failures keep the provider reason →
+        Only submission receipts auto-send - everything else waits here for a manual
+        flush (all or ticked rows). Failures keep the provider reason →
         RETRY re-queues them. REMIND_DRAFTS sweeps draft-only students near the deadline (48h dedupe).
       </p>
+
+      {/* outbox filters */}
+      <div className="flex flex-col gap-2 border-b border-border/60 px-4 py-2.5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Outbox status filter">
+          <span className="mr-1 font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground/60">
+            status:
+          </span>
+          <FilterChip active={!statusFilter} onClick={() => setStatusFilter("")} label="ALL" />
+          {(["QUEUED", "SENT", "FAILED"] as const).map((s) => (
+            <FilterChip
+              key={s}
+              active={statusFilter === s}
+              onClick={() => setStatusFilter(statusFilter === s ? "" : s)}
+              label={s}
+            />
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Outbox type filter">
+          <span className="mr-1 font-mono text-[9px] uppercase tracking-[0.25em] text-muted-foreground/60">
+            type:
+          </span>
+          <FilterChip active={!typeFilter} onClick={() => setTypeFilter("")} label="ALL" />
+          {OUTBOX_TYPES.map((t) => (
+            <FilterChip
+              key={t}
+              active={typeFilter === t}
+              onClick={() => setTypeFilter(typeFilter === t ? "" : t)}
+              label={t}
+            />
+          ))}
+        </div>
+        <div className="relative lg:w-56 lg:shrink-0">
+          <Search
+            className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="grep subject / email…"
+            aria-label="Search outbox by subject, name or email"
+            className="h-8 w-full border border-input bg-background/80 pl-8 pr-3 font-mono text-xs text-foreground placeholder:text-muted-foreground/50 focus:border-primary focus:outline-none"
+          />
+        </div>
+      </div>
 
       {!items ? (
         <div className="space-y-2 p-4" aria-busy="true">
@@ -1087,18 +1210,49 @@ function OutboxPanel() {
         <div className="flex flex-col items-center gap-3 p-12 text-center">
           <BellRing className="h-8 w-8 text-muted-foreground/50" aria-hidden="true" />
           <p className="font-mono text-xs text-muted-foreground">
-            QUEUE EMPTY - commit a review action and the student email lands here.
+            {statusFilter || typeFilter || debouncedQuery
+              ? "0 ROWS MATCH - loosen the outbox filters."
+              : "QUEUE EMPTY - commit a review action and the student email lands here."}
           </p>
         </div>
       ) : (
-        <ul className="divide-y divide-border">
-          {items.map((n) => {
-            const isQueued = n.status === "QUEUED";
-            const isFailed = n.status === "FAILED";
-            const open = expanded === n.id;
-            return (
-              <li key={n.id} className="px-4 py-2.5">
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px]">
+        <>
+          <OutboxSelectBar
+            items={items}
+            checkedIds={checkedIds}
+            onToggleAll={(ids) => setCheckedIds(ids)}
+          />
+          <ul className="divide-y divide-border">
+            {items.map((n) => {
+              const isQueued = n.status === "QUEUED";
+              const isFailed = n.status === "FAILED";
+              const open = expanded === n.id;
+              const checked = checkedIds.includes(n.id);
+              return (
+                <li key={n.id} className={cn("px-4 py-2.5", checked && "bg-emerald-400/5")}>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10px]">
+                    {isQueued ? (
+                      <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked={checked}
+                        aria-label={`Select mail to ${n.email} for selective flush`}
+                        onClick={() =>
+                          setCheckedIds((prev) =>
+                            prev.includes(n.id)
+                              ? prev.filter((x) => x !== n.id)
+                              : [...prev, n.id]
+                          )
+                        }
+                        className="text-muted-foreground transition-colors hover:text-emerald-400"
+                      >
+                        {checked ? (
+                          <CheckSquare className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" />
+                        ) : (
+                          <Square className="h-3.5 w-3.5" aria-hidden="true" />
+                        )}
+                      </button>
+                    ) : null}
                   <span className="text-muted-foreground/60 tabular-nums">
                     {new Date(n.createdAt).toLocaleString("en-IN", {
                       timeZone: "Asia/Kolkata",
@@ -1192,9 +1346,47 @@ function OutboxPanel() {
               </li>
             );
           })}
-        </ul>
+          </ul>
+        </>
       )}
     </section>
+  );
+}
+
+function OutboxSelectBar({
+  items,
+  checkedIds,
+  onToggleAll,
+}: {
+  items: NotificationRecord[];
+  checkedIds: string[];
+  onToggleAll: (ids: string[]) => void;
+}) {
+  const visibleQueued = items.filter((n) => n.status === "QUEUED");
+  const allChecked =
+    visibleQueued.length > 0 &&
+    visibleQueued.every((n) => checkedIds.includes(n.id));
+  if (visibleQueued.length === 0) return null;
+  return (
+    <div className="flex items-center justify-between border-b border-border/60 px-4 py-1.5">
+      <button
+        type="button"
+        onClick={() =>
+          onToggleAll(allChecked ? [] : visibleQueued.map((n) => n.id))
+        }
+        className="inline-flex items-center gap-1.5 font-mono text-[9px] tracking-widest text-muted-foreground transition-colors hover:text-emerald-400"
+      >
+        {allChecked ? (
+          <CheckSquare className="h-3.5 w-3.5 text-emerald-300" aria-hidden="true" />
+        ) : (
+          <Square className="h-3.5 w-3.5" aria-hidden="true" />
+        )}
+        {allChecked ? "CLEAR_VISIBLE" : `TICK_VISIBLE (${visibleQueued.length})`}
+      </button>
+      <span className="font-mono text-[9px] tracking-widest text-muted-foreground/60 tabular-nums">
+        {checkedIds.length} TICKED
+      </span>
+    </div>
   );
 }
 

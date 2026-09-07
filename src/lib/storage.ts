@@ -762,27 +762,72 @@ export async function recordNotificationDelivery(params: {
   });
 }
 
+/** Filter values accepted by the outbox listing. */
+export const NOTIFICATION_STATUSES = ["QUEUED", "SENT", "FAILED"] as const;
+export const NOTIFICATION_TYPES = [
+  "STATUS_CHANGE",
+  "SUBMISSION_RECEIPT",
+  "DRAFT_REMINDER",
+  "CUSTOM",
+] as const;
+
 export async function listNotifications(
-  take = 50
+  opts: { take?: number; status?: string; type?: string; q?: string } = {}
 ): Promise<{ items: NotificationRecord[]; queued: number }> {
+  const take = Math.min(Math.max(opts.take ?? 50, 1), 200);
+  const status = (NOTIFICATION_STATUSES as readonly string[]).includes(
+    opts.status ?? ""
+  )
+    ? opts.status!
+    : undefined;
+  const type = (NOTIFICATION_TYPES as readonly string[]).includes(opts.type ?? "")
+    ? opts.type!
+    : undefined;
+  const q = opts.q?.trim() ? opts.q.trim().slice(0, 100) : undefined;
+
   if (isSupabaseConfigured) {
     const supabase = getSupabaseAdmin();
     if (supabase) {
-      const { data, error } = await supabase
-        .from(SUPABASE_TABLES.notifications)
-        .select("*")
+      let query = supabase.from(SUPABASE_TABLES.notifications).select("*");
+      if (status) query = query.eq("status", status);
+      if (type) query = query.eq("type", type);
+      if (q) {
+        const like = `%${q}%`;
+        query = query.or(
+          `subject.ilike.${like},email.ilike.${like},full_name.ilike.${like}`
+        );
+      }
+      const { data, error } = await query
         .order("created_at", { ascending: false })
         .limit(take);
       if (error) throw new Error(`Supabase outbox failed: ${error.message}`);
       const items = (data ?? []).map((row) =>
         mapNotificationRow(snakeToCamelRow(row as Record<string, unknown>))
       );
-      return { items, queued: items.filter((n) => n.status === "QUEUED").length };
+      const { count } = await supabase
+        .from(SUPABASE_TABLES.notifications)
+        .select("id", { count: "exact", head: true })
+        .eq("status", "QUEUED");
+      return { items, queued: count ?? 0 };
     }
   }
 
+  const where: Record<string, unknown> = {};
+  if (status) where.status = status;
+  if (type) where.type = type;
+  if (q) {
+    where.OR = [
+      { subject: { contains: q } },
+      { email: { contains: q } },
+      { fullName: { contains: q } },
+    ];
+  }
   const [items, queued] = await Promise.all([
-    db.statusNotification.findMany({ orderBy: { createdAt: "desc" }, take }),
+    db.statusNotification.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take,
+    }),
     db.statusNotification.count({ where: { status: "QUEUED" } }),
   ]);
   return {
@@ -819,6 +864,49 @@ export async function listQueuedNotifications(limit = 25): Promise<NotificationR
     take: limit,
   });
   return rows.map((n) => mapNotificationRow(n as unknown as Record<string, unknown>));
+}
+
+/**
+ * Selective-flush input: the QUEUED rows among the given ids, returned in
+ * the requested order. Anything already SENT/FAILED (or unknown) is
+ * silently skipped - the drain only delivers what is still queued.
+ */
+export async function listQueuedNotificationsByIds(
+  ids: string[]
+): Promise<NotificationRecord[]> {
+  const unique = [...new Set(ids.filter((id) => typeof id === "string"))].slice(
+    0,
+    100
+  );
+  if (unique.length === 0) return [];
+  let rows: NotificationRecord[];
+  if (isSupabaseConfigured) {
+    const supabase = getSupabaseAdmin();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from(SUPABASE_TABLES.notifications)
+        .select("*")
+        .in("id", unique)
+        .eq("status", "QUEUED");
+      if (error) throw new Error(`Supabase claim failed: ${error.message}`);
+      rows = (data ?? []).map((row) =>
+        mapNotificationRow(snakeToCamelRow(row as Record<string, unknown>))
+      );
+    } else {
+      rows = [];
+    }
+  } else {
+    const found = await db.statusNotification.findMany({
+      where: { id: { in: unique }, status: "QUEUED" },
+    });
+    rows = found.map((n) =>
+      mapNotificationRow(n as unknown as Record<string, unknown>)
+    );
+  }
+  const order = new Map(unique.map((id, i) => [id, i]));
+  return rows.sort(
+    (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0)
+  );
 }
 
 /** Drain worker outcome: a row failed delivery - keep it + the provider reason. */

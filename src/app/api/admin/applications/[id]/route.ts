@@ -4,9 +4,9 @@ import { getAdminSession } from "@/lib/admin";
 import { isApplicationStatus, isInterviewMode, getStatusMeta } from "@/lib/status";
 import {
   updateApplicationStatus,
+  queueNotification,
   findInterviewConflicts,
 } from "@/lib/storage";
-import { deliverNotificationNow } from "@/lib/mailer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,8 +28,9 @@ const patchSchema = z.object({
  * PATCH /api/admin/applications/[id]
  * Allowlist-gated review action: advance the application's status,
  * optionally attaching a note (interview slot, feedback, message to
- * student…). Every commit also emails the student directly over SMTP
- * (recorded SENT/FAILED in the outbox for history - never QUEUED).
+ * student…). Every commit queues the student email in the outbox
+ * (StatusNotification) - core flushes it manually from the outbox panel
+ * (all or selected rows). Only submission receipts auto-send.
  */
 export async function PATCH(
   req: NextRequest,
@@ -115,8 +116,9 @@ export async function PATCH(
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
     }
 
-    // Direct delivery: the student gets the email over SMTP right away.
-    // Best-effort: a notification failure must never block the review action.
+    // Queue the student-facing email - core flushes the outbox manually
+    // (FLUSH_QUEUE or FLUSH_SELECTED). Best-effort: a notification failure
+    // must never block the review action.
     try {
       const meta = getStatusMeta(parsed.data.status);
       const parts = [
@@ -142,16 +144,16 @@ export async function PATCH(
         );
       }
       parts.push("", "- NEXUS core team · VIT Chennai", "https://nexus.runs-on.dev");
-      await deliverNotificationNow({
+      await queueNotification({
         applicationId: updated.id,
         email: updated.email,
         fullName: updated.fullName,
         type: "STATUS_CHANGE",
         subject: `[NEXUS '26] Application update - ${meta.label}`,
-        text: parts.join("\n"),
+        body: parts.join("\n"),
       });
     } catch (notifyErr) {
-      console.error("[api/admin/applications/:id] notification delivery failed:", notifyErr);
+      console.error("[api/admin/applications/:id] notification queue failed:", notifyErr);
     }
 
     return NextResponse.json({ application: updated });
