@@ -7,7 +7,7 @@ export const DRIVE = {
   label: "RECRUITMENTS '26",
   cycle: "A.Y. 2026–27",
   // 24 Sep 2026, 23:59 IST
-  deadlineISO: "2026-09-24T23:59:59+05:30",
+  deadlineISO: "2026-09-15T23:59:59+05:30",
   node: "VIT-CHENNAI",
   coordinates: "12.9066° N, 80.0406° E",
 } as const;
