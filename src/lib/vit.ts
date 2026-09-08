@@ -5,22 +5,27 @@
  *   firstname.lastname<yearOfJoining>@vitstudent.ac.in
  *   e.g.  harshit.taneja2023@vitstudent.ac.in
  *
+ * Single-name students have no lastname segment:
+ *   firstname<yearOfJoining>@vitstudent.ac.in
+ *   e.g.  sneha.2026@vitstudent.ac.in
+ *
  * Everything (name, year of study) is DERIVED from the email - students
  * never type it manually, which keeps records clean and verifiable.
  */
 
 export const VIT_EMAIL_DOMAIN = "vitstudent.ac.in";
 
-/** Strictly firstname.lastname<4-digit-year>@vitstudent.ac.in */
+/** firstname[.lastname][.]<4-digit-year>@vitstudent.ac.in (lastname optional) */
 export const VIT_EMAIL_REGEX =
-  /^([a-z]+)\.([a-z]+)(\d{4})@vitstudent\.ac\.in$/i;
+  /^([a-z]+)(?:\.([a-z]+))?\.?(\d{4})@vitstudent\.ac\.in$/i;
 
 export interface VitEmailProfile {
   /** Raw email exactly as received from Google (lowercased for parsing) */
   email: string;
   firstName: string;
+  /** "" for single-name students (e.g. sneha.2026@…) */
   lastName: string;
-  /** "Harshit Taneja" */
+  /** "Harshit Taneja" (or just "Sneha" when there is no lastname) */
   fullName: string;
   /** Year the student joined VIT, e.g. 2023 */
   joinYear: number;
@@ -62,13 +67,13 @@ export function parseVitEmail(
   if (!match) return null;
   const [, rawFirst, rawLast, rawYear] = match;
   const firstName = capitalize(rawFirst);
-  const lastName = capitalize(rawLast);
+  const lastName = rawLast ? capitalize(rawLast) : "";
   const joinYear = Number(rawYear);
   return {
     email: email.trim().toLowerCase(),
     firstName,
     lastName,
-    fullName: `${firstName} ${lastName}`,
+    fullName: lastName ? `${firstName} ${lastName}` : firstName,
     joinYear,
     yearOfStudy: computeYearOfStudy(joinYear, now),
   };
@@ -86,5 +91,5 @@ export function formatYearOfStudy(year: number): string {
   return `${YEAR_ORDINALS[year] ?? year} Year`;
 }
 
-export const VIT_EMAIL_HINT = "firstname.lastnameYYYY@vitstudent.ac.in";
+export const VIT_EMAIL_HINT = "firstname[.lastname]YYYY@vitstudent.ac.in";
 export const VIT_EMAIL_EXAMPLE = "harshit.taneja2026@vitstudent.ac.in";
