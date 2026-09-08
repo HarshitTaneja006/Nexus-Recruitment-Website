@@ -6,21 +6,15 @@ import {
   type Question,
 } from "./departments";
 
-/** Build a per-question validator from the question config. */
+/** Build a per-question validator from the question config.
+ * No minimum length - a non-empty answer is enough for required
+ * questions; optional ones accept anything up to maxLength. */
 function questionSchema(q: Question) {
   let base = z.string();
   if (q.required) {
-    base = base
-      .trim()
-      .min(q.minLength ?? 1, `Minimum ${q.minLength} characters required`)
-      .max(q.maxLength ?? 4000, "Too long");
+    base = base.trim().min(1, "Answer required").max(q.maxLength ?? 4000, "Too long");
   } else {
-    base = base
-      .max(q.maxLength ?? 4000, "Too long")
-      .refine(
-        (v) => !v || v.trim().length >= (q.minLength ?? 0),
-        `Minimum ${q.minLength} characters required`
-      );
+    base = base.max(q.maxLength ?? 4000, "Too long");
   }
   return base;
 }

@@ -86,24 +86,19 @@ export function ApplicationForm({
       { min: 10, value: whatsapp.replace(/[^0-9]/g, "") },
     ];
     for (const q of COMMON_QUESTIONS) {
-      items.push({ min: q.minLength ?? 1, value: answers[q.id] ?? "" });
+      items.push({ min: 1, value: answers[q.id] ?? "" });
     }
     for (const q of dept?.questions ?? []) {
-      items.push({ min: q.minLength ?? 1, value: answers[q.id] ?? "" });
+      items.push({ min: 1, value: answers[q.id] ?? "" });
     }
     const filled = items.filter((i) => i.value.trim().length >= i.min).length;
     return Math.round((filled / items.length) * 100);
   }, [department, whatsapp, answers, dept]);
 
-  /** Local validation of one field on blur. */
+  /** Local validation of one field on blur - min-length is gone, so this
+   * only clears a stale server-side error once the field is non-empty. */
   const validateField = (q: Question, value: string) => {
-    const trimmed = value.trim();
-    if (trimmed.length > 0 && trimmed.length < (q.minLength ?? 1)) {
-      setFieldErrors((e) => ({
-        ...e,
-        [q.id]: `Minimum ${q.minLength} characters - currently ${trimmed.length}`,
-      }));
-    } else {
+    if (value.trim().length > 0) {
       setFieldErrors((e) => {
         const next = { ...e };
         delete next[q.id];
@@ -179,7 +174,7 @@ export function ApplicationForm({
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0 || !linksOk) {
       toast.error("VALIDATION_FAILED", {
-        description: "Some answers are missing or too short - scroll to the highlighted fields.",
+        description: "Some answers are missing - scroll to the highlighted fields.",
       });
       scrollToFirstError(errors);
       return;
@@ -639,7 +634,6 @@ function QuestionSection({
           const value = answers[q.id] ?? "";
           const error = errors[q.id];
           const len = value.trim().length;
-          const belowMin = Boolean(q.minLength && len > 0 && len < q.minLength);
           return (
             <div key={q.id} className="p-4" id={`q-${q.id}`}>
               <label htmlFor={`field-${q.id}`} className="flex items-baseline gap-2 font-mono text-[13px] leading-snug text-foreground">
@@ -670,7 +664,7 @@ function QuestionSection({
                     aria-describedby={`${q.id}-meta ${error ? `${q.id}-error` : ""}`}
                     className={cn(
                       "w-full resize-y border bg-background/80 px-3 py-2 font-sans text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/40 focus:outline-none",
-                      error ? "border-destructive" : belowMin ? "border-warn/60" : "border-input focus:border-primary"
+                      error ? "border-destructive" : "border-input focus:border-primary"
                     )}
                   />
                 ) : (
@@ -690,17 +684,13 @@ function QuestionSection({
                 )}
                 <div className="mt-1 flex items-center justify-between gap-2">
                   <span id={`${q.id}-meta`} className="font-mono text-[10px] text-muted-foreground/70">
-                    {q.minLength ? `min ${q.minLength}` : "optional"} · {len}/{q.maxLength ?? 1200}
+                    {q.required ? "required" : "optional"} · {len}/{q.maxLength ?? 1200}
                   </span>
                   {error ? (
                     <span id={`${q.id}-error`} role="alert" className="font-mono text-[10px] text-destructive">
                       ✗ {error}
                     </span>
-                  ) : belowMin ? (
-                    <span className="font-mono text-[10px] text-warn">
-                      keep typing - {q.minLength! - len} more characters
-                    </span>
-                  ) : len >= (q.minLength ?? Infinity) ? (
+                  ) : len > 0 ? (
                     <span className="ok-text font-mono text-[10px]">✓ ok</span>
                   ) : null}
                 </div>
