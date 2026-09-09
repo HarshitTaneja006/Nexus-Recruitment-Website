@@ -15,9 +15,11 @@
 
 export const VIT_EMAIL_DOMAIN = "vitstudent.ac.in";
 
-/** firstname[.lastname][.]<4-digit-year>@vitstudent.ac.in (lastname optional) */
+/** firstname[.lastname][.]<4-digit-year>[section]@vitstudent.ac.in.
+ * Lastname optional; some mails carry a section suffix after the year
+ * (e.g. diya.2026a@…). */
 export const VIT_EMAIL_REGEX =
-  /^([a-z]+)(?:\.([a-z]+))?\.?(\d{4})@vitstudent\.ac\.in$/i;
+  /^([a-z]+)(?:\.([a-z]+))?\.?(\d{4})[a-z]?@vitstudent\.ac\.in$/i;
 
 export interface VitEmailProfile {
   /** Raw email exactly as received from Google (lowercased for parsing) */
