@@ -22,9 +22,9 @@ const actionSchema = z.object({
 });
 
 /**
- * GET /api/admin/notifications?status=&type=&q= - outbox rows (newest
- * first) + global queued counter + delivery provider hint
- * ("smtp" | "sandbox"). Only submission receipts auto-send; everything
+ * GET /api/admin/notifications?status=&type=&q=&page= - outbox rows newest
+ * first, 50 per page (page/pageCount/total included) + global queued
+ * counter + delivery provider hint ("smtp" | "sandbox"). Only submission receipts auto-send; everything
  * else waits here for a manual flush (all or selected).
  * PATCH /api/admin/notifications - {id, action:"send"} mark SENT ·
  * {id, action:"requeue"} put a FAILED row back in the queue ·
@@ -41,15 +41,27 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
   const params = req.nextUrl.searchParams;
+  const pageParam = Number(params.get("page") ?? "1");
+  const page =
+    Number.isInteger(pageParam) && pageParam >= 1 ? pageParam : 1;
+  const PAGE_SIZE = 50;
   try {
     const outbox = await listNotifications({
+      take: PAGE_SIZE,
+      page,
       status: params.get("status") ?? undefined,
       type: params.get("type") ?? undefined,
       q: params.get("q")?.trim() || undefined,
     });
     // capability hint for the console - never leaks the key itself
     const provider = getMailProvider();
-    return NextResponse.json({ ...outbox, provider });
+    return NextResponse.json({
+      ...outbox,
+      provider,
+      page,
+      pageSize: PAGE_SIZE,
+      pageCount: Math.max(1, Math.ceil(outbox.total / PAGE_SIZE)),
+    });
   } catch (err) {
     console.error("[api/admin/notifications] GET failed:", err);
     return NextResponse.json({ error: "SERVER_ERROR" }, { status: 500 });

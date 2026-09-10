@@ -900,6 +900,9 @@ function OutboxPanel() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [checkedIds, setCheckedIds] = useState<string[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageCount, setPageCount] = useState(1);
+  const [total, setTotal] = useState(0);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
@@ -908,6 +911,7 @@ function OutboxPanel() {
       if (statusFilter) params.set("status", statusFilter);
       if (typeFilter) params.set("type", typeFilter);
       if (debouncedQuery) params.set("q", debouncedQuery);
+      params.set("page", String(page));
       const qs = params.toString();
       const res = await fetch(
         `/api/admin/notifications${qs ? `?${qs}` : ""}`,
@@ -917,10 +921,15 @@ function OutboxPanel() {
       const d = (await res.json()) as {
         items: NotificationRecord[];
         queued: number;
+        total: number;
+        page: number;
+        pageCount: number;
         provider?: string;
       };
       setItems(d.items);
       setQueued(d.queued);
+      setTotal(d.total);
+      setPageCount(d.pageCount);
       setProvider(d.provider ?? null);
       // drop ticks for rows that are no longer on screen
       setCheckedIds((prev) =>
@@ -929,11 +938,16 @@ function OutboxPanel() {
     } catch {
       toast.error("OUTBOX_OFFLINE", { description: "Could not load the notification queue." });
     }
-  }, [statusFilter, typeFilter, debouncedQuery]);
+  }, [statusFilter, typeFilter, debouncedQuery, page]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // any filter change sends the reader back to page one
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, typeFilter, debouncedQuery]);
 
   // debounce the outbox grep box
   useEffect(() => {
@@ -1090,7 +1104,8 @@ function OutboxPanel() {
     <section className="terminal-panel mt-4" aria-label="Notification outbox">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-secondary/50 px-4 py-2">
         <span className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground">
-          $ mailq --outbox · {items ? `${queued} queued / ${items.length} rows` : "…"}
+          $ mailq --outbox · {items ? `${queued} queued / ${total} rows` : "…"}
+          {items && pageCount > 1 ? ` · page ${page}/${pageCount}` : ""}
           {provider ? (
             <span
               className={cn(
@@ -1347,6 +1362,33 @@ function OutboxPanel() {
             );
           })}
           </ul>
+          {pageCount > 1 ? (
+            <nav
+              aria-label="Outbox pages"
+              className="flex items-center justify-between border-t border-border px-4 py-2.5"
+            >
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="inline-flex items-center gap-1.5 border border-border px-2.5 py-1.5 font-mono text-[10px] tracking-widest text-muted-foreground transition-colors enabled:hover:border-primary/50 enabled:hover:text-primary disabled:opacity-40"
+              >
+                <ChevronsLeft className="h-3.5 w-3.5" aria-hidden="true" /> PREV
+              </button>
+              <span className="font-mono text-[10px] tracking-[0.2em] text-muted-foreground tabular-nums">
+                PAGE {String(page).padStart(2, "0")} /{" "}
+                {String(pageCount).padStart(2, "0")}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                disabled={page >= pageCount}
+                className="inline-flex items-center gap-1.5 border border-border px-2.5 py-1.5 font-mono text-[10px] tracking-widest text-muted-foreground transition-colors enabled:hover:border-primary/50 enabled:hover:text-primary disabled:opacity-40"
+              >
+                NEXT <ChevronsRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            </nav>
+          ) : null}
         </>
       )}
     </section>

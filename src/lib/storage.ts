@@ -772,9 +772,10 @@ export const NOTIFICATION_TYPES = [
 ] as const;
 
 export async function listNotifications(
-  opts: { take?: number; status?: string; type?: string; q?: string } = {}
-): Promise<{ items: NotificationRecord[]; queued: number }> {
+  opts: { take?: number; page?: number; status?: string; type?: string; q?: string } = {}
+): Promise<{ items: NotificationRecord[]; queued: number; total: number }> {
   const take = Math.min(Math.max(opts.take ?? 50, 1), 200);
+  const page = Math.max(opts.page ?? 1, 1);
   const status = (NOTIFICATION_STATUSES as readonly string[]).includes(
     opts.status ?? ""
   )
@@ -799,16 +800,32 @@ export async function listNotifications(
       }
       const { data, error } = await query
         .order("created_at", { ascending: false })
-        .limit(take);
+        .range((page - 1) * take, page * take - 1);
       if (error) throw new Error(`Supabase outbox failed: ${error.message}`);
       const items = (data ?? []).map((row) =>
         mapNotificationRow(snakeToCamelRow(row as Record<string, unknown>))
       );
-      const { count } = await supabase
-        .from(SUPABASE_TABLES.notifications)
-        .select("id", { count: "exact", head: true })
-        .eq("status", "QUEUED");
-      return { items, queued: count ?? 0 };
+      const [{ count: queued }, { count: total }] = await Promise.all([
+        supabase
+          .from(SUPABASE_TABLES.notifications)
+          .select("id", { count: "exact", head: true })
+          .eq("status", "QUEUED"),
+        (() => {
+          let q2 = supabase
+            .from(SUPABASE_TABLES.notifications)
+            .select("id", { count: "exact", head: true });
+          if (status) q2 = q2.eq("status", status);
+          if (type) q2 = q2.eq("type", type);
+          if (q) {
+            const like = `%${q}%`;
+            q2 = q2.or(
+              `subject.ilike.${like},email.ilike.${like},full_name.ilike.${like}`
+            );
+          }
+          return q2;
+        })(),
+      ]);
+      return { items, queued: queued ?? 0, total: total ?? 0 };
     }
   }
 
@@ -822,19 +839,22 @@ export async function listNotifications(
       { fullName: { contains: q } },
     ];
   }
-  const [items, queued] = await Promise.all([
+  const [items, queued, total] = await Promise.all([
     db.statusNotification.findMany({
       where,
       orderBy: { createdAt: "desc" },
+      skip: (page - 1) * take,
       take,
     }),
     db.statusNotification.count({ where: { status: "QUEUED" } }),
+    db.statusNotification.count({ where }),
   ]);
   return {
     items: items.map((n) =>
       mapNotificationRow(n as unknown as Record<string, unknown>)
     ),
     queued,
+    total,
   };
 }
 
