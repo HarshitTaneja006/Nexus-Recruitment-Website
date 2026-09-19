@@ -1584,12 +1584,21 @@ function DetailDialog({
         throw new Error("409");
       }
       if (!res.ok) throw new Error(String(res.status));
-      const data = (await res.json()) as { application: ApplicationRecord };
+      const data = (await res.json()) as {
+        application: ApplicationRecord;
+        emailQueued?: boolean;
+      };
       onUpdated(data.application); // replace with server truth
       setSlotConflicts(null);
-      toast.success(`STATUS_COMMITTED · ${getStatusMeta(draftStatus).label}`, {
-        description: `${application.fullName} - student sees this live on their receipt.`,
-      });
+      if (data.emailQueued === false) {
+        toast.success(`STATUS_COMMITTED · ${getStatusMeta(draftStatus).label}`, {
+          description: `${application.fullName} - mail held until you add the interview slot.`,
+        });
+      } else {
+        toast.success(`STATUS_COMMITTED · ${getStatusMeta(draftStatus).label}`, {
+          description: `${application.fullName} - student sees this live on their receipt.`,
+        });
+      }
     } catch {
       onUpdated(application); // roll back optimistic patch
       toast.error("COMMIT_FAILED", {
@@ -1882,6 +1891,11 @@ function DetailDialog({
                     - put the meet link / venue in the note below. The student
                     gets a live countdown on their receipt.
                   </p>
+                  {!slotDate || !slotTime ? (
+                    <p className="mt-1.5 font-mono text-[9px] tracking-widest text-warn/90">
+                      NO_SLOT_YET - committing now holds the student mail until you set one.
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
 

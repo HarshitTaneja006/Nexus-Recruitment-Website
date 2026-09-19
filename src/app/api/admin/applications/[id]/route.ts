@@ -31,6 +31,8 @@ const patchSchema = z.object({
  * student…). Every commit queues the student email in the outbox
  * (StatusNotification) - core flushes it manually from the outbox panel
  * (all or selected rows). Only submission receipts auto-send.
+ * A SHORTLISTED commit without an interview slot is held back (no mail)
+ * until the slot is added - response carries emailQueued for the console.
  */
 export async function PATCH(
   req: NextRequest,
@@ -119,44 +121,51 @@ export async function PATCH(
     // Queue the student-facing email - core flushes the outbox manually
     // (FLUSH_QUEUE or FLUSH_SELECTED). Best-effort: a notification failure
     // must never block the review action.
-    try {
-      const meta = getStatusMeta(parsed.data.status);
-      const parts = [
-        `Hi ${updated.fullName},`,
-        "",
-        `Your NEXUS Recruitments '26 application (d ${updated.department}/) moved to ${meta.label}.`,
-        "",
-        meta.studentCopy,
-      ];
-      if (updated.statusNote) parts.push("", `Note from the core team: ${updated.statusNote}`);
-      if (interviewAt) {
-        parts.push(
+    // Exception: a SHORTLISTED commit without an interview slot holds the
+    // mail - the student is notified once the slot is actually added.
+    const holdMail = parsed.data.status === "SHORTLISTED" && !interviewAt;
+    let emailQueued = false;
+    if (!holdMail) {
+      try {
+        const meta = getStatusMeta(parsed.data.status);
+        const parts = [
+          `Hi ${updated.fullName},`,
           "",
-          `Interview slot: ${new Date(interviewAt).toLocaleString("en-IN", {
-            timeZone: "Asia/Kolkata",
-            weekday: "long",
-            day: "2-digit",
-            month: "long",
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false,
-          })} IST${interviewMode ? ` · ${interviewMode}` : ""}`
-        );
+          `Your NEXUS Recruitments '26 application (d ${updated.department}/) moved to ${meta.label}.`,
+          "",
+          meta.studentCopy,
+        ];
+        if (updated.statusNote) parts.push("", `Note from the core team: ${updated.statusNote}`);
+        if (interviewAt) {
+          parts.push(
+            "",
+            `Interview slot: ${new Date(interviewAt).toLocaleString("en-IN", {
+              timeZone: "Asia/Kolkata",
+              weekday: "long",
+              day: "2-digit",
+              month: "long",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            })} IST${interviewMode ? ` · ${interviewMode}` : ""}`
+          );
+        }
+        parts.push("", "- NEXUS core team · VIT Chennai", "https://nexus.runs-on.dev");
+        await queueNotification({
+          applicationId: updated.id,
+          email: updated.email,
+          fullName: updated.fullName,
+          type: "STATUS_CHANGE",
+          subject: `[NEXUS '26] Application update - ${meta.label}`,
+          body: parts.join("\n"),
+        });
+        emailQueued = true;
+      } catch (notifyErr) {
+        console.error("[api/admin/applications/:id] notification queue failed:", notifyErr);
       }
-      parts.push("", "- NEXUS core team · VIT Chennai", "https://nexus.runs-on.dev");
-      await queueNotification({
-        applicationId: updated.id,
-        email: updated.email,
-        fullName: updated.fullName,
-        type: "STATUS_CHANGE",
-        subject: `[NEXUS '26] Application update - ${meta.label}`,
-        body: parts.join("\n"),
-      });
-    } catch (notifyErr) {
-      console.error("[api/admin/applications/:id] notification queue failed:", notifyErr);
     }
 
-    return NextResponse.json({ application: updated });
+    return NextResponse.json({ application: updated, emailQueued });
   } catch (err) {
     console.error("[api/admin/applications/:id] PATCH failed:", err);
     return NextResponse.json({ error: "SERVER_ERROR" }, { status: 500 });
