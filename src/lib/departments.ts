@@ -327,6 +327,31 @@ export function getDepartmentName(id: string | null | undefined): string {
   return getDepartment(id)?.name ?? id ?? "-";
 }
 
+/**
+ * Domain WhatsApp invite for shortlist emails - resolved from env, never
+ * hardcoded. One variable per domain (see .env.example):
+ *   technical            → WHATSAPP_GROUP_TECHNICAL
+ *   design_social_media  → WHATSAPP_GROUP_DESIGN_SOCIAL_MEDIA
+ *   management           → WHATSAPP_GROUP_MANAGEMENT
+ * Returns null when the department is unknown or its variable is unset,
+ * in which case the shortlist email simply omits the group line.
+ */
+export function getDomainWhatsappGroupLink(
+  id: string | null | undefined
+): string | null {
+  const key =
+    id === "technical"
+      ? "WHATSAPP_GROUP_TECHNICAL"
+      : id === "design_social_media"
+        ? "WHATSAPP_GROUP_DESIGN_SOCIAL_MEDIA"
+        : id === "management"
+          ? "WHATSAPP_GROUP_MANAGEMENT"
+          : null;
+  if (!key) return null;
+  const value = process.env[key]?.trim();
+  return value ? value : null;
+}
+
 /** All question ids that must be answered for a given department (common + dept). */
 export function requiredQuestionIds(departmentId: string): string[] {
   const dept = getDepartment(departmentId);

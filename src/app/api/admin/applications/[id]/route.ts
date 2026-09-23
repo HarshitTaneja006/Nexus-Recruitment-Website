@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getAdminSession } from "@/lib/admin";
 import { isApplicationStatus, isInterviewMode, getStatusMeta } from "@/lib/status";
+import { getDepartmentName, getDomainWhatsappGroupLink } from "@/lib/departments";
 import {
   updateApplicationStatus,
   queueNotification,
@@ -149,6 +150,15 @@ export async function PATCH(
               hour12: false,
             })} IST${interviewMode ? ` · ${interviewMode}` : ""}`
           );
+        }
+        if (parsed.data.status === "SHORTLISTED") {
+          const groupLink = getDomainWhatsappGroupLink(updated.department);
+          if (groupLink) {
+            parts.push(
+              "",
+              `You are also invited to join the ${getDepartmentName(updated.department)} WhatsApp group: ${groupLink}`
+            );
+          }
         }
         parts.push("", "- NEXUS core team · VIT Chennai", "https://nexus.runs-on.dev");
         await queueNotification({
