@@ -28,6 +28,8 @@ import {
   KeyRound,
   CheckSquare,
   Square,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -35,6 +37,8 @@ import {
   DEPARTMENTS,
   getDepartment,
   LEGACY_QUESTION_LABELS,
+  DEFAULT_INTERVIEW_PANEL,
+  resolveSlotPanel,
   type Links,
 } from "@/lib/departments";
 import {
@@ -74,6 +78,7 @@ interface SlotConflict {
   department: string;
   interviewAt: string;
   interviewMode: string | null;
+  interviewPanel?: string | null;
 }
 
 const DEPT_COLORS: Record<string, string> = {
@@ -1494,9 +1499,29 @@ function DetailDialog({
   const [slotDate, setSlotDate] = useState("");
   const [slotTime, setSlotTime] = useState("");
   const [slotMode, setSlotMode] = useState<string>("GOOGLE_MEET");
+  const [slotPanel, setSlotPanel] = useState<string>(DEFAULT_INTERVIEW_PANEL);
+  const [panels, setPanels] = useState<string[]>([DEFAULT_INTERVIEW_PANEL]);
   const [slotConflicts, setSlotConflicts] = useState<SlotConflict[] | null>(null);
   const [saving, setSaving] = useState(false);
   const lastAppId = useRef<string | null>(null);
+
+  // panel roster: fresh every time a DIFFERENT file is opened so the
+  // scheduler dropdown always offers the current Panel 1..N set
+  useEffect(() => {
+    if (!application) return;
+    let live = true;
+    fetch("/api/admin/panels", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { panels?: string[] } | null) => {
+        if (live && Array.isArray(data?.panels) && data.panels.length > 0) {
+          setPanels(data.panels);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [application?.id]);
 
   // sync editor state when a DIFFERENT file is opened - identity-guarded so the
   // optimistic update → server-truth swap (same id) never wipes in-progress
@@ -1515,6 +1540,7 @@ function DetailDialog({
       setSlotDate(parts.date);
       setSlotTime(parts.time);
       setSlotMode(application.interviewMode ?? "GOOGLE_MEET");
+      setSlotPanel(resolveSlotPanel(application.interviewPanel));
       setSlotConflicts(null);
     }
   }, [application]);
@@ -1527,7 +1553,8 @@ function DetailDialog({
       slotDate !== isoToIstParts(application.interviewAt).date ||
       slotTime !== isoToIstParts(application.interviewAt).time ||
       (draftStatus === "SHORTLISTED" &&
-        slotMode !== (application.interviewMode ?? "GOOGLE_MEET")));
+        (slotMode !== (application.interviewMode ?? "GOOGLE_MEET") ||
+          slotPanel !== resolveSlotPanel(application.interviewPanel))));
 
   const commit = async (force = false) => {
     if (!application || !dirty) return;
@@ -1535,6 +1562,7 @@ function DetailDialog({
     const interviewAt =
       draftStatus === "SHORTLISTED" ? istPartsToIso(slotDate, slotTime) : null;
     const interviewMode = draftStatus === "SHORTLISTED" ? slotMode : null;
+    const interviewPanel = draftStatus === "SHORTLISTED" ? slotPanel : null;
     const optimistic: ApplicationRecord = {
       ...application,
       status: draftStatus,
@@ -1543,6 +1571,7 @@ function DetailDialog({
       statusUpdatedAt: new Date().toISOString(),
       interviewAt,
       interviewMode,
+      interviewPanel,
       statusHistory: [
         ...application.statusHistory,
         {
@@ -1564,24 +1593,45 @@ function DetailDialog({
           panelNote: draftPanelNote.trim() || null,
           interviewAt,
           interviewMode,
+          interviewPanel,
           ...(force ? { force: true } : {}),
         }),
       });
       if (res.status === 409) {
         const data = (await res.json().catch(() => null)) as {
           error?: string;
+          panel?: string;
           conflicts?: SlotConflict[];
         } | null;
         if (data?.error === "SLOT_CONFLICT") {
           onUpdated(application); // roll back the optimistic row
           setSlotConflicts(data.conflicts ?? []);
           toast.warning("SLOT_CONFLICT", {
-            description:
-              "Another candidate holds a slot within ±45 min. Review the clash below - commit --force to double-book anyway.",
+            description: `${data.panel ?? slotPanel} is booked within ±45 min. Other panels may still be free - or commit --force to double-book anyway.`,
           });
           return;
         }
         throw new Error("409");
+      }
+      if (res.status === 400) {
+        const data = (await res.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        if (data?.error === "UNKNOWN_PANEL") {
+          onUpdated(application); // roll back the optimistic row
+          setSlotPanel(DEFAULT_INTERVIEW_PANEL);
+          fetch("/api/admin/panels", { cache: "no-store" })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d: { panels?: string[] } | null) => {
+              if (Array.isArray(d?.panels) && d.panels.length > 0) setPanels(d.panels);
+            })
+            .catch(() => {});
+          toast.warning("PANEL_RETIRED", {
+            description: "That panel no longer exists - pick a current one and commit again.",
+          });
+          return;
+        }
+        throw new Error("400");
       }
       if (!res.ok) throw new Error(String(res.status));
       const data = (await res.json()) as {
@@ -1743,6 +1793,11 @@ function DetailDialog({
                           application.interviewMode
                             ? ` · ${application.interviewMode}`
                             : ""
+                        }${
+                          application.interviewPanel &&
+                          application.interviewPanel !== DEFAULT_INTERVIEW_PANEL
+                            ? ` · ${application.interviewPanel}`
+                            : ""
                         }`}
                         accent="text-fuchsia-400"
                       />
@@ -1836,7 +1891,7 @@ function DetailDialog({
                     <CalendarClock className="h-3 w-3" aria-hidden="true" />
                     schedule slot · IST (Asia/Kolkata)
                   </p>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                     <label className="flex flex-col gap-1">
                       <span className="text-[9px] tracking-widest text-muted-foreground">
                         DATE
@@ -1884,6 +1939,31 @@ function DetailDialog({
                         ))}
                       </select>
                     </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[9px] tracking-widest text-muted-foreground">
+                        PANEL
+                      </span>
+                      <select
+                        value={slotPanel}
+                        onChange={(e) => {
+                          setSlotPanel(e.target.value);
+                          setSlotConflicts(null);
+                        }}
+                        aria-label="Interview panel"
+                        className="h-8 border border-input bg-background/80 px-2 text-[11px] text-foreground focus:border-primary focus:outline-none"
+                      >
+                        {panels.includes(slotPanel) ? null : (
+                          <option key={slotPanel} value={slotPanel}>
+                            {slotPanel} (retired)
+                          </option>
+                        )}
+                        {panels.map((p) => (
+                          <option key={p} value={p}>
+                            {p}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
                   </div>
                   <p className="mt-2 text-[9px] leading-relaxed text-muted-foreground/70">
                     {INTERVIEW_MODE_META[slotMode as keyof typeof INTERVIEW_MODE_META]
@@ -1911,8 +1991,9 @@ function DetailDialog({
                     $ ntp --check · SLOT_CONFLICT
                   </p>
                   <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground">
-                    these files already hold a slot within ±45 min - one panel can't
-                    be in two rooms at once:
+                    these files already hold {slotPanel} within ±45 min - one
+                    panel can't be in two rooms at once (other panels may
+                    still be free):
                   </p>
                   <ul className="mt-2 space-y-1">
                     {slotConflicts.map((c) => (
@@ -1935,6 +2016,11 @@ function DetailDialog({
                         </span>
                         {c.interviewMode ? (
                           <span className="text-muted-foreground/70">{c.interviewMode}</span>
+                        ) : null}
+                        {c.interviewPanel ? (
+                          <span className="border border-border px-1 py-px text-[8px] tracking-widest text-muted-foreground/80">
+                            {c.interviewPanel}
+                          </span>
                         ) : null}
                       </li>
                     ))}
@@ -2150,6 +2236,144 @@ function agendaDayLabel(date: string): string {
     .toUpperCase();
 }
 
+/* ------------------------------------------------------------------ */
+/* PANEL MANAGER - parallel interview panels (Panel 1, Panel 2, …).    */
+/* The drive starts with exactly one panel; core adds more here so     */
+/* two panels can interview simultaneously. Slots clash only WITHIN    */
+/* a panel - the same clock time on different panels runs parallel.    */
+/* ------------------------------------------------------------------ */
+
+function PanelManager({
+  apps,
+  onChanged,
+}: {
+  apps: ApplicationRecord[] | null;
+  onChanged: () => void;
+}) {
+  const [panels, setPanels] = useState<string[]>([DEFAULT_INTERVIEW_PANEL]);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/panels", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = (await res.json()) as { panels?: string[] };
+      if (Array.isArray(data.panels) && data.panels.length > 0) {
+        setPanels(data.panels);
+      }
+    } catch {
+      // strip stays on the default - never blocks the console
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  /** scheduled (slotted) SHORTLISTED files per panel */
+  const counts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const a of apps ?? []) {
+      if (!a.interviewAt) continue;
+      const panel = resolveSlotPanel(a.interviewPanel);
+      map.set(panel, (map.get(panel) ?? 0) + 1);
+    }
+    return map;
+  }, [apps]);
+
+  const mutate = async (action: "add" | "remove", name?: string) => {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/admin/panels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(name ? { action, name } : { action }),
+      });
+      const data = (await res.json().catch(() => null)) as {
+        error?: string;
+        message?: string;
+        panels?: string[];
+        added?: string;
+        removed?: string;
+      } | null;
+      if (!res.ok || !data?.panels) {
+        toast.error(data?.error ?? "PANEL_UPDATE_FAILED", {
+          description:
+            data?.message ??
+            "Could not update the panel roster - try again.",
+        });
+        return;
+      }
+      setPanels(data.panels);
+      onChanged(); // rescan the agenda so counts/rows stay honest
+      if (action === "add") {
+        toast.success(`PANEL_ADDED · ${data.added}`, {
+          description: "Two panels can now interview the same slot in parallel.",
+        });
+      } else {
+        toast.success(`PANEL_REMOVED · ${data.removed}`, {
+          description: "Roster updated.",
+        });
+      }
+    } catch {
+      toast.error("PANEL_UPDATE_FAILED", {
+        description: "Could not update the panel roster - try again.",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="terminal-panel" aria-label="Interview panels">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-secondary/50 px-4 py-2">
+        <span className="flex items-center gap-1.5 font-mono text-[10px] tracking-[0.2em] text-muted-foreground">
+          <CalendarClock className="h-3 w-3" aria-hidden="true" />
+          $ panels --parallel · {panels.length} PANEL{panels.length === 1 ? "" : "S"}
+        </span>
+        <button
+          type="button"
+          onClick={() => mutate("add")}
+          disabled={busy}
+          title="add another interview panel"
+          className="inline-flex h-7 items-center gap-1.5 border border-border px-2.5 font-mono text-[9px] tracking-widest text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary disabled:opacity-40"
+        >
+          <Plus className="h-3 w-3" aria-hidden="true" />
+          {busy ? "WORKING…" : "ADD_PANEL"}
+        </button>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 p-4">
+        {panels.map((p) => (
+          <span
+            key={p}
+            className="inline-flex items-center gap-2 border border-fuchsia-400/40 bg-fuchsia-400/5 px-2.5 py-1 font-mono text-[10px] tracking-widest text-foreground"
+          >
+            {p}
+            <span className="text-muted-foreground/70 tabular-nums">
+              {counts.get(p) ?? 0} SLOTS
+            </span>
+            {panels.length > 1 ? (
+              <button
+                type="button"
+                onClick={() => mutate("remove", p)}
+                disabled={busy}
+                title={`delete ${p}`}
+                aria-label={`Delete ${p}`}
+                className="text-muted-foreground/70 transition-colors hover:text-destructive disabled:opacity-40"
+              >
+                <Trash2 className="h-3 w-3" aria-hidden="true" />
+              </button>
+            ) : null}
+          </span>
+        ))}
+      </div>
+      <p className="border-t border-border/60 bg-background/40 px-4 py-1.5 font-mono text-[9px] text-muted-foreground/60">
+        slots clash only within a panel - the same time on different panels runs parallel · a panel with scheduled slots can't be deleted
+      </p>
+    </section>
+  );
+}
+
 function AgendaPanel({ onOpen }: { onOpen: (app: ApplicationRecord) => void }) {
   const [apps, setApps] = useState<ApplicationRecord[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -2257,8 +2481,12 @@ function AgendaPanel({ onOpen }: { onOpen: (app: ApplicationRecord) => void }) {
       );
       for (const s of day.slots) {
         const p = isoToIstParts(s.interviewAt ?? null);
+        const panel =
+          s.interviewPanel && s.interviewPanel !== DEFAULT_INTERVIEW_PANEL
+            ? `, ${s.interviewPanel}`
+            : "";
         lines.push(
-          `  ${p.time}  ${s.fullName} (${s.department}${s.interviewMode ? ", " + s.interviewMode : ""}) - ${agendaTminus(s.interviewAt as string, now)}`
+          `  ${p.time}  ${s.fullName} (${s.department}${s.interviewMode ? ", " + s.interviewMode : ""}${panel}) - ${agendaTminus(s.interviewAt as string, now)}`
         );
       }
     }
@@ -2272,7 +2500,9 @@ function AgendaPanel({ onOpen }: { onOpen: (app: ApplicationRecord) => void }) {
   }, [days, unsotted.length, todayKey, now]);
 
   return (
-    <section className="terminal-panel mt-4" aria-label="Interview agenda">
+    <>
+      <PanelManager apps={apps} onChanged={load} />
+      <section className="terminal-panel mt-4" aria-label="Interview agenda">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-secondary/50 px-4 py-2">
         <span className="flex items-center gap-1.5 font-mono text-[10px] tracking-[0.2em] text-muted-foreground">
           <CalendarClock className="h-3 w-3" aria-hidden="true" />
@@ -2400,6 +2630,7 @@ function AgendaPanel({ onOpen }: { onOpen: (app: ApplicationRecord) => void }) {
         )}
       </div>
     </section>
+    </>
   );
 }
 
@@ -2478,6 +2709,11 @@ function AgendaRow({
       <span className="hidden border border-border px-1.5 py-px font-mono text-[8px] tracking-widest text-muted-foreground/80 md:inline">
         {modeMeta?.label ?? app.interviewMode ?? "MODE TBD"}
       </span>
+      {app.interviewPanel && app.interviewPanel !== DEFAULT_INTERVIEW_PANEL ? (
+        <span className="hidden border border-fuchsia-400/40 bg-fuchsia-400/5 px-1.5 py-px font-mono text-[8px] tracking-widest text-fuchsia-400 md:inline">
+          {app.interviewPanel}
+        </span>
+      ) : null}
     </li>
   );
 }
@@ -2637,6 +2873,11 @@ function OpsDayStrip({ onOpen }: { onOpen: (app: ApplicationRecord) => void }) {
               <span className="hidden border border-border px-1.5 py-px font-mono text-[8px] tracking-widest text-muted-foreground/80 md:inline">
                 {modeMeta?.label ?? app.interviewMode ?? "MODE TBD"}
               </span>
+              {app.interviewPanel && app.interviewPanel !== DEFAULT_INTERVIEW_PANEL ? (
+                <span className="hidden border border-fuchsia-400/40 bg-fuchsia-400/5 px-1.5 py-px font-mono text-[8px] tracking-widest text-fuchsia-400 md:inline">
+                  {app.interviewPanel}
+                </span>
+              ) : null}
               <StatusBadge status={app.status} />
             </li>
           );

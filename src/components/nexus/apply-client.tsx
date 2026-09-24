@@ -177,6 +177,7 @@ export function ApplyClient({ profile }: { profile: VitEmailProfile }) {
         reviewedBy: null,
         interviewAt: null,
         interviewMode: null,
+        interviewPanel: null,
         clarificationQuestion: null,
         clarificationAnswer: null,
         clarificationAskedAt: null,

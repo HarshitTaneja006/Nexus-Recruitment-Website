@@ -25,6 +25,7 @@ create table if not exists public.applications (
   reviewed_by   text,
   interview_at  timestamptz,
   interview_mode text,
+  interview_panel text,
   status_history jsonb not null default '[]'::jsonb,
   clarification_question text,
   clarification_answer text,
@@ -42,6 +43,8 @@ alter table public.applications add column if not exists status_updated_at times
 alter table public.applications add column if not exists reviewed_by text;
 alter table public.applications add column if not exists interview_at timestamptz;
 alter table public.applications add column if not exists interview_mode text;
+-- nullable + no default → instant, no table rewrite on existing deployments
+alter table public.applications add column if not exists interview_panel text;
 alter table public.applications add column if not exists status_history jsonb not null default '[]'::jsonb;
 alter table public.applications add column if not exists clarification_question text;
 alter table public.applications add column if not exists clarification_answer text;
@@ -53,6 +56,8 @@ create index if not exists applications_department_idx on public.applications (d
 create index if not exists applications_status_idx on public.applications (status);
 create index if not exists applications_submitted_at_idx on public.applications (submitted_at desc);
 create index if not exists applications_interview_at_idx on public.applications (interview_at) where status = 'INTERVIEW';
+-- per-panel overlap guard: SHORTLISTED slots scoped to one interview panel
+create index if not exists applications_panel_slot_idx on public.applications (interview_panel, interview_at) where status = 'SHORTLISTED';
 
 
 -- 2. Notification Outbox Table
