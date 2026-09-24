@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getAdminSession } from "@/lib/admin";
 import { isApplicationStatus, isInterviewMode, getStatusMeta } from "@/lib/status";
-import { getDepartmentName, getDomainWhatsappGroupLink } from "@/lib/departments";
+import { getDepartmentName, getDomainWhatsappGroupLink, DEFAULT_INTERVIEW_PANEL, normalizePanelName } from "@/lib/departments";
 import {
   updateApplicationStatus,
   queueNotification,
   findInterviewConflicts,
+  getApplicationById,
+  getInterviewPanels,
 } from "@/lib/storage";
 
 export const runtime = "nodejs";
@@ -19,6 +21,8 @@ const patchSchema = z.object({
   interviewAt: z.string().max(40).optional().nullable(),
   /** GOOGLE_MEET | IN_PERSON | PHONE */
   interviewMode: z.string().max(20).optional().nullable(),
+  /** interview panel running the slot ("Panel 1", "Panel 2", …) */
+  interviewPanel: z.string().max(40).optional().nullable(),
   /** skip the interview-slot overlap guard (admin confirmed the double-booking) */
   force: z.boolean().optional(),
   /** admin-only internal note - never shown or emailed to the student */
@@ -68,27 +72,55 @@ export async function PATCH(
       ? parsed.data.interviewMode
       : null;
 
-  // one panel, no overlaps: warn when another candidate already holds a slot
-  // within ±45min. The admin can still force the commit (SLOT_CONFLICT → 409).
+  // interview panel: explicit choice wins (validated against the roster),
+  // otherwise keep the file's panel, otherwise the drive default. Only
+  // meaningful for SHORTLISTED slots - other statuses leave it untouched.
+  let interviewPanel: string | null | undefined;
+  if (parsed.data.status === "SHORTLISTED" && interviewAt) {
+    const panels = await getInterviewPanels();
+    const explicit = normalizePanelName(parsed.data.interviewPanel);
+    if (parsed.data.interviewPanel != null && explicit === null) {
+      return NextResponse.json({ error: "VALIDATION_FAILED" }, { status: 400 });
+    }
+    if (explicit && !panels.includes(explicit)) {
+      return NextResponse.json({ error: "UNKNOWN_PANEL" }, { status: 400 });
+    }
+    if (explicit) {
+      interviewPanel = explicit;
+    } else {
+      const current = await getApplicationById(id);
+      if (!current) {
+        return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+      }
+      interviewPanel =
+        normalizePanelName(current.interviewPanel) ?? DEFAULT_INTERVIEW_PANEL;
+    }
+  }
+
+  // overlap guard, scoped to the slot's panel: warn when another candidate
+  // on the SAME panel already holds a slot within ±45min. Other panels may
+  // run the same clock time in parallel. Force still double-books.
   if (parsed.data.status === "SHORTLISTED" && interviewAt && !parsed.data.force) {
     try {
       const conflicts = await findInterviewConflicts({
         excludeId: id,
         aroundIso: interviewAt,
         windowMinutes: 45,
+        panel: interviewPanel ?? DEFAULT_INTERVIEW_PANEL,
       });
       if (conflicts.length > 0) {
         return NextResponse.json(
           {
             error: "SLOT_CONFLICT",
-            message:
-              "Another candidate already holds an interview slot within ±45 min of this one.",
+            message: `Another candidate on ${interviewPanel ?? DEFAULT_INTERVIEW_PANEL} already holds an interview slot within ±45 min of this one.`,
+            panel: interviewPanel ?? DEFAULT_INTERVIEW_PANEL,
             conflicts: conflicts.map((c) => ({
               id: c.id,
               fullName: c.fullName,
               department: c.department,
               interviewAt: c.interviewAt,
               interviewMode: c.interviewMode,
+              interviewPanel: c.interviewPanel,
             })),
           },
           { status: 409 }
@@ -114,6 +146,7 @@ export async function PATCH(
       reviewedBy: adminEmail,
       interviewAt,
       interviewMode,
+      interviewPanel,
     });
     if (!updated) {
       return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -150,6 +183,12 @@ export async function PATCH(
               hour12: false,
             })} IST${interviewMode ? ` · ${interviewMode}` : ""}`
           );
+          // name the panel only on multi-panel drives - single-panel
+          // drives keep the mail exactly as before.
+          const panels = await getInterviewPanels();
+          if (panels.length > 1 && updated.interviewPanel) {
+            parts.push("", `Interview panel: ${updated.interviewPanel} - report there for your slot.`);
+          }
         }
         if (parsed.data.status === "SHORTLISTED") {
           const groupLink = getDomainWhatsappGroupLink(updated.department);

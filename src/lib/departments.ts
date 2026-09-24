@@ -352,6 +352,49 @@ export function getDomainWhatsappGroupLink(
   return value ? value : null;
 }
 
+/* ------------------------------------------------------------------ */
+/* Interview panels (parallel shortlist slots)                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Client-safe interview-panel helpers. The panel ROSTER lives in the
+ * Setting KV table ("interview_panels", see storage.ts) so core can
+ * add/remove panels at runtime; per-slot ASSIGNMENT lives on the
+ * application row (interviewPanel). This module holds only the naming
+ * rules - no server imports, safe for client components.
+ */
+
+/** A drive starts with exactly one panel; core adds more as needed. */
+export const DEFAULT_INTERVIEW_PANEL = "Panel 1";
+/** Hard cap so a runaway client can't flood the roster. */
+export const MAX_INTERVIEW_PANELS = 10;
+/** Panel names are short labels ("Panel 1", "Panel 2", …). */
+export const MAX_PANEL_NAME_LENGTH = 24;
+
+/** Trim + validate a panel name. Null when blank or over the limit. */
+export function normalizePanelName(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const name = raw.trim().replace(/\s+/g, " ");
+  if (!name || name.length > MAX_PANEL_NAME_LENGTH) return null;
+  return name;
+}
+
+/** Next auto-name for "add panel" ("Panel 1" → "Panel 2", skips taken). */
+export function nextPanelName(existing: string[]): string {
+  const taken = new Set(existing.map((p) => p.toLowerCase()));
+  for (let n = existing.length + 1; ; n += 1) {
+    const candidate = `Panel ${n}`;
+    if (!taken.has(candidate.toLowerCase())) return candidate;
+  }
+}
+
+/** Slot rows with no explicit panel belong to the default panel. */
+export function resolveSlotPanel(
+  panel: string | null | undefined
+): string {
+  return panel?.trim() ? panel.trim() : DEFAULT_INTERVIEW_PANEL;
+}
+
 /** All question ids that must be answered for a given department (common + dept). */
 export function requiredQuestionIds(departmentId: string): string[] {
   const dept = getDepartment(departmentId);

@@ -75,6 +75,7 @@ export async function GET() {
     const description = [
       `NEXUS Recruitments '26 - ${dept?.name ?? app.department} interview.`,
       modeLine,
+      ...(app.interviewPanel ? [`Interview panel: ${app.interviewPanel}.`] : []),
       "Panel: NEXUS core team, VIT Chennai.",
       `Full details live in your application status: ${siteUrl}/apply`,
     ].join("\n");

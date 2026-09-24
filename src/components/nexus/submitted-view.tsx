@@ -20,7 +20,7 @@ import {
   Send,
 } from "lucide-react";
 import { toast } from "sonner";
-import { getDepartment, COMMON_QUESTIONS } from "@/lib/departments";
+import { getDepartment, COMMON_QUESTIONS, DEFAULT_INTERVIEW_PANEL } from "@/lib/departments";
 import { formatYearOfStudy } from "@/lib/vit";
 import { DRIVE_DEADLINE, WHATSAPP_GROUP_LINK } from "@/lib/drive";
 import { useDriveOpen } from "@/lib/drive-client";
@@ -552,6 +552,12 @@ function InterviewCard({ application }: { application: ApplicationRecord }) {
             <p className="font-mono text-sm font-bold tracking-wide text-foreground">
               {when} <span className="text-fuchsia-400">IST</span>
             </p>
+            {application.interviewPanel &&
+            application.interviewPanel !== DEFAULT_INTERVIEW_PANEL ? (
+              <p className="mt-1 inline-block border border-fuchsia-400/40 bg-fuchsia-400/10 px-2 py-0.5 font-mono text-[10px] tracking-widest text-fuchsia-400">
+                {application.interviewPanel}
+              </p>
+            ) : null}
             <p className="mt-0.5 font-sans text-xs text-muted-foreground">
               {modeLabel === "IN_PERSON"
                 ? "On campus - venue & panel in the core message below."

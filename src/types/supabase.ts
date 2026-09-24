@@ -75,6 +75,7 @@ export type Database = {
           id?: string
           interview_at?: string | null
           interview_mode?: string | null
+          interview_panel?: string | null
           join_year: number
           links?: Json
           reviewed_by?: string | null
@@ -99,6 +100,7 @@ export type Database = {
           id?: string
           interview_at?: string | null
           interview_mode?: string | null
+          interview_panel?: string | null
           join_year?: number
           links?: Json
           reviewed_by?: string | null

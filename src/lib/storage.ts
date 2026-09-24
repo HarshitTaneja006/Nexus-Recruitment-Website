@@ -3,6 +3,13 @@ import type { Prisma } from "@prisma/client";
 import { getSupabaseAdmin, isSupabaseConfigured, SUPABASE_TABLES } from "@/lib/supabase";
 import type { DraftData, SubmitApplicationInput } from "@/lib/validation";
 import type { Links } from "@/lib/departments";
+import {
+  DEFAULT_INTERVIEW_PANEL,
+  MAX_INTERVIEW_PANELS,
+  nextPanelName,
+  normalizePanelName,
+  resolveSlotPanel,
+} from "@/lib/departments";
 import type { StatusEvent } from "@/lib/status";
 import { parseStatusHistory } from "@/lib/status";
 
@@ -30,6 +37,8 @@ export interface ApplicationRecord {
   reviewedBy: string | null;
   interviewAt: string | null;
   interviewMode: string | null;
+  /** interview panel running this slot; null (legacy) = default "Panel 1" */
+  interviewPanel: string | null;
   clarificationQuestion: string | null;
   clarificationAnswer: string | null;
   clarificationAskedAt: string | null;
@@ -170,6 +179,8 @@ export async function updateApplicationStatus(params: {
   /** interview slot (attaches to SHORTLISTED) */
   interviewAt?: string | null;
   interviewMode?: string | null;
+  /** interview panel running the slot - omitted (undefined) leaves it untouched */
+  interviewPanel?: string | null;
 }): Promise<ApplicationRecord | null> {
   const nowISO = new Date().toISOString();
 
@@ -202,6 +213,9 @@ export async function updateApplicationStatus(params: {
           reviewed_by: params.reviewedBy,
           interview_at: params.interviewAt ?? null,
           interview_mode: params.interviewMode ?? null,
+          ...(params.interviewPanel !== undefined
+            ? { interview_panel: params.interviewPanel }
+            : {}),
           status_history: history,
           updated_at: nowISO,
         })
@@ -235,6 +249,9 @@ export async function updateApplicationStatus(params: {
       reviewedBy: params.reviewedBy,
       interviewAt: params.interviewAt ? new Date(params.interviewAt) : null,
       interviewMode: params.interviewMode ?? null,
+      ...(params.interviewPanel !== undefined
+        ? { interviewPanel: params.interviewPanel }
+        : {}),
       statusHistory: history as unknown as Prisma.InputJsonValue,
     },
   });
@@ -268,6 +285,27 @@ export async function findApplicationByEmail(
   }
 
   const row = await db.application.findUnique({ where: { email } });
+  return row ? mapApplicationRow(row) : null;
+}
+
+/** Admin console read - fetch one file by id (panel resolution, guards). */
+export async function getApplicationById(
+  id: string
+): Promise<ApplicationRecord | null> {
+  if (isSupabaseConfigured) {
+    const supabase = getSupabaseAdmin();
+    if (supabase) {
+      const { data, error } = await supabase
+        .from(SUPABASE_TABLES.applications)
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw new Error(`Supabase read failed: ${error.message}`);
+      return data ? mapApplicationRow(snakeToCamelRow(data)) : null;
+    }
+  }
+
+  const row = await db.application.findUnique({ where: { id } });
   return row ? mapApplicationRow(row) : null;
 }
 
@@ -493,30 +531,45 @@ export interface ListOptions {
  * applications currently parked on status=INTERVIEW count (an accepted or
  * rejected file with an old slot is not a conflict).
  */
+/**
+ * Overlap guard for interview slots - scoped to ONE interview panel.
+ * Two panels may run the same clock time in parallel; only clashes
+ * within the same panel block the commit (unless forced).
+ *
+ * Rows with a legacy null panel count as the default panel, so old
+ * slots keep guarding "Panel 1" after the feature ships.
+ */
 export async function findInterviewConflicts(params: {
   excludeId: string;
   aroundIso: string;
   windowMinutes?: number;
+  /** panel the candidate slot belongs to - defaults to "Panel 1" */
+  panel?: string | null;
 }): Promise<
-  Array<Pick<ApplicationRecord, "id" | "fullName" | "email" | "department" | "interviewAt" | "interviewMode">>
+  Array<Pick<ApplicationRecord, "id" | "fullName" | "email" | "department" | "interviewAt" | "interviewMode" | "interviewPanel">>
 > {
   const win = params.windowMinutes ?? 45;
   const center = new Date(params.aroundIso);
   if (Number.isNaN(center.getTime())) return [];
   const from = new Date(center.getTime() - win * 60_000);
   const to = new Date(center.getTime() + win * 60_000);
+  const panel = resolveSlotPanel(params.panel);
+  const matchLegacyNull = panel === DEFAULT_INTERVIEW_PANEL;
 
   if (isSupabaseConfigured) {
     const supabase = getSupabaseAdmin();
     if (supabase) {
-      const { data, error } = await supabase
+      let query = supabase
         .from(SUPABASE_TABLES.applications)
-        .select("id, full_name, email, department, interview_at, interview_mode")
-        .eq("status", "INTERVIEW")
+        .select("id, full_name, email, department, interview_at, interview_mode, interview_panel")
+        .eq("status", "SHORTLISTED")
         .neq("id", params.excludeId)
         .gte("interview_at", from.toISOString())
-        .lte("interview_at", to.toISOString())
-        .limit(10);
+        .lte("interview_at", to.toISOString());
+      query = matchLegacyNull
+        ? query.or(`interview_panel.eq.${panel},interview_panel.is.null`)
+        : query.eq("interview_panel", panel);
+      const { data, error } = await query.limit(10);
       if (error) throw new Error(`Supabase conflicts failed: ${error.message}`);
       return (data ?? []).map((r: Record<string, unknown>) => ({
         id: String(r.id ?? ""),
@@ -525,15 +578,20 @@ export async function findInterviewConflicts(params: {
         department: String(r.department ?? ""),
         interviewAt: String(r.interview_at ?? ""),
         interviewMode: r.interview_mode == null ? null : String(r.interview_mode),
+        interviewPanel:
+          r.interview_panel == null ? null : String(r.interview_panel),
       }));
     }
   }
 
   const rows = await db.application.findMany({
     where: {
-      status: "INTERVIEW",
+      status: "SHORTLISTED",
       id: { not: params.excludeId },
       interviewAt: { gte: from, lte: to },
+      ...(matchLegacyNull
+        ? { OR: [{ interviewPanel: panel }, { interviewPanel: null }] }
+        : { interviewPanel: panel }),
     },
     select: {
       id: true,
@@ -542,6 +600,7 @@ export async function findInterviewConflicts(params: {
       department: true,
       interviewAt: true,
       interviewMode: true,
+      interviewPanel: true,
     },
     take: 10,
   });
@@ -549,6 +608,7 @@ export async function findInterviewConflicts(params: {
     ...r,
     interviewAt: r.interviewAt ? r.interviewAt.toISOString() : "",
     interviewMode: r.interviewMode ?? null,
+    interviewPanel: r.interviewPanel ?? null,
   }));
 }
 
@@ -633,6 +693,7 @@ export async function exportApplicationsCsv(opts: ListOptions = {}): Promise<str
     "status",
     "interview_at",
     "interview_mode",
+    "interview_panel",
     "status_note",
     "github",
     "linkedin",
@@ -655,6 +716,7 @@ export async function exportApplicationsCsv(opts: ListOptions = {}): Promise<str
         r.status,
         r.interviewAt ?? "",
         r.interviewMode ?? "",
+        r.interviewPanel ?? "",
         r.statusNote ?? "",
         r.links?.github ?? "",
         r.links?.linkedin ?? "",
@@ -1015,7 +1077,7 @@ export async function markAllNotificationsSent(): Promise<number> {
 /* Settings (key/value runtime flags)                                  */
 /* ------------------------------------------------------------------ */
 
-export type SettingKey = "stats_public";
+export type SettingKey = "stats_public" | "interview_panels";
 
 export async function getSetting(key: SettingKey): Promise<string | null> {
   try {
@@ -1037,6 +1099,101 @@ export async function setSetting(key: SettingKey, value: string): Promise<void> 
 /** Public stats console flag - disabled ("0") unless core explicitly unlocks it. */
 export async function isStatsPublic(): Promise<boolean> {
   return (await getSetting("stats_public")) === "1";
+}
+
+/* ------------------------------------------------------------------ */
+/* Interview panels (parallel shortlist slots)                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Panel roster for parallel interviews. Stored as a JSON array under the
+ * "interview_panels" Setting key (no schema change needed to add/remove
+ * panels). A drive starts with exactly ["Panel 1"]; core adds "Panel 2",
+ * … from the agenda tab and assigns each shortlist slot to one panel.
+ * The ±45min overlap guard applies WITHIN a panel, so two panels can
+ * run the same clock time simultaneously.
+ */
+
+/** Roster, sanitized - always at least the default panel. */
+export async function getInterviewPanels(): Promise<string[]> {
+  try {
+    const raw = await getSetting("interview_panels");
+    if (!raw) return [DEFAULT_INTERVIEW_PANEL];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [DEFAULT_INTERVIEW_PANEL];
+    const clean = parsed
+      .map((p) => normalizePanelName(p))
+      .filter((p): p is string => p !== null)
+      .slice(0, MAX_INTERVIEW_PANELS);
+    return clean.length > 0 ? clean : [DEFAULT_INTERVIEW_PANEL];
+  } catch {
+    return [DEFAULT_INTERVIEW_PANEL];
+  }
+}
+
+/** Replace the roster (validated upstream by the panels API). */
+export async function setInterviewPanels(panels: string[]): Promise<string[]> {
+  const clean = panels
+    .map((p) => normalizePanelName(p))
+    .filter((p): p is string => p !== null)
+    .slice(0, MAX_INTERVIEW_PANELS);
+  const roster =
+    clean.length > 0 ? [...new Set(clean)] : [DEFAULT_INTERVIEW_PANEL];
+  await setSetting("interview_panels", JSON.stringify(roster));
+  return roster;
+}
+
+/** Auto-name the next panel from the current roster ("Panel N"). */
+export async function addInterviewPanel(): Promise<{ panels: string[]; added: string } | { error: "PANEL_LIMIT" }> {
+  const panels = await getInterviewPanels();
+  if (panels.length >= MAX_INTERVIEW_PANELS) return { error: "PANEL_LIMIT" };
+  const added = nextPanelName(panels);
+  const updated = await setInterviewPanels([...panels, added]);
+  return { panels: updated, added };
+}
+
+/**
+ * Delete-guard: how many live SHORTLISTED slots still reference a panel
+ * (legacy null rows count as the default panel). Refused while > 0 so
+ * scheduled candidates are never orphaned.
+ */
+export async function countPanelSlotReferences(panel: string): Promise<number> {
+  const name = normalizePanelName(panel);
+  if (!name) return 0;
+  if (isSupabaseConfigured) {
+    const supabase = getSupabaseAdmin();
+    if (supabase) {
+      let query = supabase
+        .from(SUPABASE_TABLES.applications)
+        .select("id", { count: "exact", head: true })
+        .eq("status", "SHORTLISTED")
+        .not("interview_at", "is", null);
+      query =
+        name === DEFAULT_INTERVIEW_PANEL
+          ? query.or(`interview_panel.eq.${name},interview_panel.is.null`)
+          : query.eq("interview_panel", name);
+      const { count, error } = await query;
+      if (error) throw new Error(`Supabase panel count failed: ${error.message}`);
+      return count ?? 0;
+    }
+  }
+  return db.application.count({
+    where: {
+      status: "SHORTLISTED",
+      interviewAt: { not: null },
+      ...(name === DEFAULT_INTERVIEW_PANEL
+        ? { OR: [{ interviewPanel: name }, { interviewPanel: null }] }
+        : { interviewPanel: name }),
+    },
+  });
+}
+
+/** Remove a panel from the roster (validated upstream by the panels API). */
+export async function removeInterviewPanel(panel: string): Promise<string[]> {
+  const panels = await getInterviewPanels();
+  const name = normalizePanelName(panel);
+  const updated = panels.filter((p) => p !== name);
+  return setInterviewPanels(updated.length > 0 ? updated : [DEFAULT_INTERVIEW_PANEL]);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1164,6 +1321,13 @@ function mapApplicationRow(row: Record<string, unknown>): ApplicationRecord {
       row.interviewMode === null || row.interviewMode === undefined
         ? null
         : String(row.interviewMode ?? ""),
+    interviewPanel:
+      row.interviewPanel === null ||
+      row.interviewPanel === undefined ||
+      row.interview_panel === null ||
+      row.interview_panel === undefined
+        ? null
+        : String(row.interviewPanel ?? row.interview_panel ?? ""),
     clarificationQuestion:
       row.clarificationQuestion === null || row.clarificationQuestion === undefined
         ? null

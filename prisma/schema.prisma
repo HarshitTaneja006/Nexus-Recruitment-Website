@@ -47,6 +47,8 @@ model Application {
   reviewedBy              String?   @map("reviewed_by")
   interviewAt             DateTime? @map("interview_at")
   interviewMode           String?   @map("interview_mode")
+  /** interview panel running this slot (parallel panels); null = default "Panel 1" */
+  interviewPanel          String?   @map("interview_panel")
   clarificationQuestion   String?   @map("clarification_question")
   clarificationAnswer     String?   @map("clarification_answer")
   clarificationAskedAt    DateTime? @map("clarification_asked_at")
