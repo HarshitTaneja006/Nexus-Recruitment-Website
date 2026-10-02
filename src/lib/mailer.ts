@@ -53,11 +53,19 @@ function getTransport(): nodemailer.Transporter {
 /**
  * Deliver one message. Throws on failure - the caller (drain worker) is
  * responsible for marking the outbox row FAILED with the error message.
+ *
+ * Attachments (acceptance certificates) are attached ONLY by the drain
+ * worker at flush time - queue time never touches Storage.
  */
 export async function sendMail(params: {
   to: string;
   subject: string;
   text: string;
+  attachments?: Array<{
+    filename: string;
+    content: Buffer;
+    contentType?: string;
+  }>;
 }): Promise<void> {
   if (!process.env.SMTP_HOST) {
     throw new Error("smtp not configured (SMTP_HOST unset)");
@@ -69,6 +77,11 @@ export async function sendMail(params: {
     subject: params.subject,
     text: params.text,
     html: renderEmailHtml(params.subject, params.text),
+    attachments: params.attachments?.map((a) => ({
+      filename: a.filename,
+      content: a.content,
+      contentType: a.contentType ?? "application/octet-stream",
+    })),
   });
 }
 

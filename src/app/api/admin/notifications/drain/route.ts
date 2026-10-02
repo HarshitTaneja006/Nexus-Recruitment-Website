@@ -10,6 +10,12 @@ import {
 } from "@/lib/storage";
 import { queueDraftReminderSweep } from "@/lib/notify";
 import { getMailProvider, sendMail } from "@/lib/mailer";
+import {
+  CERTIFICATE_BUCKET,
+  certificatePathForEmail,
+  fetchCertificateForEmail,
+  isAcceptanceNotification,
+} from "@/lib/certificates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,6 +46,12 @@ const bodySchema = z.object({
  *  - SMTP_HOST unset (sandbox) → rows are marked SENT immediately; the
  *                              delivery is simulated so the console state
  *                              machine stays testable
+ * Acceptance mails (subject/body carrying ACCEPTED) additionally require
+ * their PNG in the `certificates` bucket
+ * (`<email-local-part>.png`) - the drain downloads it and attaches it
+ * here at flush time. A missing PNG marks the row FAILED with a
+ * CERT_MISSING reason and keeps it QUEUED-side (retry after uploading),
+ * in both smtp and sandbox modes.
  * Failures mark the row FAILED with the provider reason; the core team can
  * RETRY (re-queue) from the outbox panel and drain again.
  */
@@ -83,6 +95,57 @@ export async function POST(req: Request) {
     const failed: Array<{ id: string; email: string; reason: string }> = [];
 
     for (const row of claimed) {
+      // Acceptance gate: the PNG must exist in the bucket before this
+      // mail may leave, regardless of provider. Checked first so even
+      // sandbox mode cannot flush an acceptance without its certificate.
+      if (isAcceptanceNotification(row)) {
+        let cert: Awaited<ReturnType<typeof fetchCertificateForEmail>>;
+        try {
+          cert = await fetchCertificateForEmail(row.email);
+        } catch (err) {
+          const reason = `CERT_ERROR: ${err instanceof Error ? err.message : "storage lookup failed"}`.slice(0, 240);
+          await markNotificationFailed(row.id, reason);
+          failed.push({ id: row.id, email: row.email, reason });
+          continue;
+        }
+        if (!cert) {
+          const path = certificatePathForEmail(row.email);
+          const reason =
+            `CERT_MISSING: ${CERTIFICATE_BUCKET}/${path} not in bucket - upload the PNG, then RETRY + flush`.slice(0, 240);
+          await markNotificationFailed(row.id, reason);
+          failed.push({ id: row.id, email: row.email, reason });
+          continue;
+        }
+        if (provider === "sandbox") {
+          await markNotificationSent(row.id);
+          delivered += 1;
+          continue;
+        }
+        try {
+          await sendMail({
+            to: row.email,
+            subject: row.subject,
+            text: row.body,
+            attachments: [
+              {
+                filename: cert.filename,
+                content: cert.content,
+                contentType: cert.contentType,
+              },
+            ],
+          });
+          await markNotificationSent(row.id);
+          delivered += 1;
+        } catch (err) {
+          const reason = `smtp: ${err instanceof Error ? err.message : "delivery error"}`.slice(
+            0,
+            240
+          );
+          await markNotificationFailed(row.id, reason);
+          failed.push({ id: row.id, email: row.email, reason });
+        }
+        continue;
+      }
       if (provider === "sandbox") {
         // sandbox provider: nothing to call - accept the hand-off
         await markNotificationSent(row.id);

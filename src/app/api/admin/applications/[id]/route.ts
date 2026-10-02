@@ -3,6 +3,8 @@ import { z } from "zod";
 import { getAdminSession } from "@/lib/admin";
 import { isApplicationStatus, isInterviewMode, getStatusMeta } from "@/lib/status";
 import { getDepartmentName, getDomainWhatsappGroupLink, DEFAULT_INTERVIEW_PANEL, normalizePanelName } from "@/lib/departments";
+import { NEXUS_COMMUNITY_ENV_KEY, getNexusCommunityLink } from "@/lib/community";
+import { certificatePathForEmail, CERTIFICATE_BUCKET } from "@/lib/certificates";
 import {
   updateApplicationStatus,
   queueNotification,
@@ -198,6 +200,29 @@ export async function PATCH(
               `You are also invited to join the ${getDepartmentName(updated.department)} WhatsApp group: ${groupLink}`
             );
           }
+        }
+        if (parsed.data.status === "ACCEPTED") {
+          // Nexus community invite - required env, no fallback. A missing
+          // link fails the review action loudly instead of shipping an
+          // acceptance mail without it.
+          let communityLink: string;
+          try {
+            communityLink = getNexusCommunityLink();
+          } catch {
+            return NextResponse.json(
+              {
+                error: "COMMUNITY_LINK_MISSING",
+                message: `${NEXUS_COMMUNITY_ENV_KEY} is not configured - set it before accepting students.`,
+              },
+              { status: 500 }
+            );
+          }
+          parts.push(
+            "",
+            `Join the Nexus WhatsApp Community for onboarding and your first build night: ${communityLink}`,
+            "",
+            `P.S. Your acceptance certificate (${CERTIFICATE_BUCKET}/${certificatePathForEmail(updated.email)}) rides along with this email - it is attached when core flushes the outbox.`
+          );
         }
         parts.push("", "- NEXUS core team · VIT Chennai", "https://nexus.runs-on.dev");
         await queueNotification({
