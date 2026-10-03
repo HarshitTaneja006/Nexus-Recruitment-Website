@@ -54,7 +54,7 @@ import {
   isTerminalStatus,
   parseStatusHistory,
 } from "@/lib/status";
-import { TECH_ROUND1_BRIEF_URL } from "@/lib/tech-round1";
+import { TECH_ROUND1_BRIEF_URL, problemStatementTitle } from "@/lib/tech-round1";
 import type { ApplicationRecord, DriveStats, NotificationRecord } from "@/lib/storage";
 import { formatYearOfStudy } from "@/lib/vit";
 import { cn } from "@/lib/utils";
@@ -1955,8 +1955,11 @@ function DetailDialog({
                 </div>
               ) : null}
 
-              {/* Round 1 hand-in (read-only) - links the student submitted */}
-              {application.round1GithubUrl || application.round1ReportUrl || application.round1DeployUrl ? (
+              {/* Round 1 hand-in (read-only) - statement + links the student submitted */}
+              {application.round1ProblemStatement ||
+              application.round1GithubUrl ||
+              application.round1ReportUrl ||
+              application.round1DeployUrl ? (
                 <div
                   className="mt-3 border border-cyan-300/40 bg-cyan-300/5 p-3"
                   aria-label="Round 1 submission"
@@ -1979,6 +1982,11 @@ function DetailDialog({
                       </span>
                     ) : null}
                   </p>
+                  {application.round1ProblemStatement ? (
+                    <p className="mt-2 inline-block border border-cyan-300/60 bg-cyan-300/10 px-2.5 py-1 font-mono text-[10px] font-bold tracking-widest text-cyan-300">
+                      PS_{problemStatementTitle(application.round1ProblemStatement).toUpperCase()}
+                    </p>
+                  ) : null}
                   <ul className="mt-2 space-y-1.5">
                     {(
                       [

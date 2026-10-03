@@ -45,6 +45,8 @@ export interface ApplicationRecord {
   /** optional live demo link */
   round1DeployUrl: string | null;
   round1SubmittedAt: string | null;
+  /** chosen problem statement ("01".."04") */
+  round1ProblemStatement: string | null;
   clarificationQuestion: string | null;
   clarificationAnswer: string | null;
   clarificationAskedAt: string | null;
@@ -716,6 +718,7 @@ export async function exportApplicationsCsv(opts: ListOptions = {}): Promise<str
     "round1_report_url",
     "round1_deploy_url",
     "round1_submitted_at",
+    "round1_problem_statement",
     ...questionIds,
   ];
 
@@ -743,6 +746,7 @@ export async function exportApplicationsCsv(opts: ListOptions = {}): Promise<str
         r.round1ReportUrl ?? "",
         r.round1DeployUrl ?? "",
         r.round1SubmittedAt ?? "",
+        r.round1ProblemStatement ?? "",
         ...questionIds.map((id) => r.answers?.[id] ?? ""),
       ]
         .map(escape)
@@ -1337,14 +1341,15 @@ export interface Round1Submission {
 }
 
 /**
- * Student Round 1 hand-in: github + report required, deploy optional.
- * Guarded upstream (route): only status=SHORTLISTED_R1 + technical +
- * before deadline reach here. Re-submits overwrite (students can fix
- * links until the deadline). Appends a "student" audit event so the
- * history shows the hand-in.
+ * Student Round 1 hand-in: statement + github + report required, deploy
+ * optional. Guarded upstream (route): only status=SHORTLISTED_R1 +
+ * technical + allowed statement for the student's year + before deadline
+ * reach here. Re-submits overwrite (students can fix links until the
+ * deadline). Appends a "student" audit event so the history shows it.
  */
 export async function submitTechRound1(params: {
   id: string;
+  problemStatement: string;
   githubUrl: string;
   reportUrl: string;
   deployUrl?: string | null;
@@ -1365,13 +1370,14 @@ export async function submitTechRound1(params: {
         : [];
       history.push({
         status: "SHORTLISTED_R1",
-        note: "Round 1 project submitted",
+        note: `Round 1 project submitted (${params.problemStatement})`,
         by: "student",
         at: nowISO,
       });
       const { data, error } = await supabase
         .from(SUPABASE_TABLES.applications)
         .update({
+          round1_problem_statement: params.problemStatement,
           round1_github_url: params.githubUrl.trim(),
           round1_report_url: params.reportUrl.trim(),
           round1_deploy_url: deploy,
@@ -1395,13 +1401,14 @@ export async function submitTechRound1(params: {
   const history: StatusEvent[] = parseStatusHistory(existing.statusHistory);
   history.push({
     status: "SHORTLISTED_R1",
-    note: "Round 1 project submitted",
+    note: `Round 1 project submitted (${params.problemStatement})`,
     by: "student",
     at: nowISO,
   });
   const saved = await db.application.update({
     where: { id: params.id },
     data: {
+      round1ProblemStatement: params.problemStatement,
       round1GithubUrl: params.githubUrl.trim(),
       round1ReportUrl: params.reportUrl.trim(),
       round1DeployUrl: deploy,
@@ -1562,6 +1569,10 @@ function mapApplicationRow(row: Record<string, unknown>): ApplicationRecord {
       const d = raw instanceof Date ? raw : new Date(String(raw));
       return Number.isNaN(d.getTime()) ? null : d.toISOString();
     })(),
+    round1ProblemStatement:
+      row.round1ProblemStatement ?? row.round1_problem_statement
+        ? String(row.round1ProblemStatement ?? row.round1_problem_statement)
+        : null,
     clarificationQuestion:
       row.clarificationQuestion === null || row.clarificationQuestion === undefined
         ? null

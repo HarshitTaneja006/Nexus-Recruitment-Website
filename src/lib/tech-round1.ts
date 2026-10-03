@@ -38,8 +38,35 @@ const optionalUrl = z
   .optional()
   .or(z.literal(""));
 
-/** Student hand-in payload: github + report required, deploy optional. */
+/** The four Round 1 problem statements (detail lives in the brief PDF).
+ *  Titles are display-only - edit them here and the student screen,
+ *  admin console and emails pick them up. */
+export const PROBLEM_STATEMENTS = [
+  { id: "01", title: "Problem Statement 01" },
+  { id: "02", title: "Problem Statement 02" },
+  { id: "03", title: "Problem Statement 03" },
+  { id: "04", title: "Problem Statement 04" },
+] as const;
+
+export const PROBLEM_STATEMENT_IDS = ["01", "02", "03", "04"] as const;
+
+/**
+ * Which statements a year may pick: 2nd/3rd years are limited to
+ * 03/04, everyone else (1st/4th/5th) may pick any of 01-04.
+ */
+export function allowedProblemStatements(yearOfStudy: number): string[] {
+  if (yearOfStudy === 2 || yearOfStudy === 3) return ["03", "04"];
+  return [...PROBLEM_STATEMENT_IDS];
+}
+
+export function problemStatementTitle(id: string | null | undefined): string {
+  const found = PROBLEM_STATEMENTS.find((p) => p.id === id);
+  return found ? `${found.id} - ${found.title}` : (id ?? "-");
+}
+
+/** Student hand-in payload: statement + github + report required, deploy optional. */
 export const techRound1Schema = z.object({
+  problemStatement: z.enum(PROBLEM_STATEMENT_IDS, "Pick a problem statement"),
   githubUrl: requiredUrl("Paste your GitHub repo link"),
   reportUrl: requiredUrl("Paste your report link (drive / docs / pdf url)"),
   deployUrl: optionalUrl,

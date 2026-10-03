@@ -58,6 +58,8 @@ model Application {
   round1ReportUrl         String?   @map("round1_report_url")
   round1DeployUrl         String?   @map("round1_deploy_url")
   round1SubmittedAt       DateTime? @map("round1_submitted_at")
+  /** chosen problem statement ("01".."04"; 2nd/3rd years limited to 03/04) */
+  round1ProblemStatement  String?   @map("round1_problem_statement")
   statusHistory           Json      @default("[]") @map("status_history")
   submittedAt             DateTime  @default(now()) @map("submitted_at")
   updatedAt               DateTime  @default(now()) @updatedAt @map("updated_at")

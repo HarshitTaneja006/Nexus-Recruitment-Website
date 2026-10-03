@@ -35,6 +35,7 @@ create table if not exists public.applications (
   round1_report_url text,
   round1_deploy_url text,
   round1_submitted_at timestamptz,
+  round1_problem_statement text,
   submitted_at  timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
@@ -59,6 +60,7 @@ alter table public.applications add column if not exists round1_github_url text;
 alter table public.applications add column if not exists round1_report_url text;
 alter table public.applications add column if not exists round1_deploy_url text;
 alter table public.applications add column if not exists round1_submitted_at timestamptz;
+alter table public.applications add column if not exists round1_problem_statement text;
 
 -- Performance Indexes
 create index if not exists applications_department_idx on public.applications (department);
@@ -70,6 +72,7 @@ create index if not exists applications_panel_slot_idx on public.applications (i
 -- tech Round 1 cohort lookups (no slots on R1, only deadline + submission)
 create index if not exists applications_round1_status_idx on public.applications (status) where status = 'SHORTLISTED_R1';
 create index if not exists applications_round1_submitted_idx on public.applications (round1_submitted_at) where status = 'SHORTLISTED_R1';
+create index if not exists applications_round1_statement_idx on public.applications (round1_problem_statement) where status = 'SHORTLISTED_R1';
 
 
 -- 2. Notification Outbox Table

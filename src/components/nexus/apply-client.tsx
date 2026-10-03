@@ -186,6 +186,7 @@ export function ApplyClient({ profile }: { profile: VitEmailProfile }) {
         round1ReportUrl: null,
         round1DeployUrl: null,
         round1SubmittedAt: null,
+        round1ProblemStatement: null,
         statusHistory: [],
         submittedAt: app.submittedAt ?? new Date().toISOString(),
         updatedAt: new Date().toISOString(),
