@@ -15,12 +15,16 @@ import { toast } from "sonner";
 import type { ApplicationRecord } from "@/lib/storage";
 import {
   TECH_ROUND1_BRIEF_URL,
+  PROBLEM_STATEMENTS,
+  allowedProblemStatements,
   formatRound1Deadline,
   round1MsRemaining,
 } from "@/lib/tech-round1";
+import { formatYearOfStudy } from "@/lib/vit";
 import { cn } from "@/lib/utils";
 
 interface Round1State {
+  problemStatement: string;
   githubUrl: string;
   reportUrl: string;
   deployUrl: string;
@@ -44,11 +48,13 @@ export function TechRound1Panel({
   const [application, setApplication] = useState(initial);
   const [deadline, setDeadline] = useState<string | null>(initialDeadline);
   const [form, setForm] = useState<Round1State>({
+    problemStatement: initial.round1ProblemStatement ?? "",
     githubUrl: initial.round1GithubUrl ?? "",
     reportUrl: initial.round1ReportUrl ?? "",
     deployUrl: initial.round1DeployUrl ?? "",
   });
-  const [errors, setErrors] = useState<Partial<Round1State>>({});
+  const [errors, setErrors] = useState<Partial<Round1State> & { problemStatement?: string }>({});
+  const allowed = allowedProblemStatements(application.yearOfStudy);
   const [saving, setSaving] = useState(false);
   const [now, setNow] = useState<number | null>(null);
 
@@ -67,6 +73,7 @@ export function TechRound1Panel({
         setApplication((prev) => ({ ...prev, ...data.application }));
         setDeadline(data.deadline);
         setForm((f) => ({
+          problemStatement: f.problemStatement || data.application.round1ProblemStatement || "",
           githubUrl: f.githubUrl || data.application.round1GithubUrl || "",
           reportUrl: f.reportUrl || data.application.round1ReportUrl || "",
           deployUrl: f.deployUrl || data.application.round1DeployUrl || "",
@@ -109,7 +116,9 @@ export function TechRound1Panel({
     e.preventDefault();
     if (saving || closed) return;
     setErrors({});
-    const next: Partial<Round1State> = {};
+    const next: Partial<Round1State> & { problemStatement?: string } = {};
+    if (!form.problemStatement || !allowed.includes(form.problemStatement))
+      next.problemStatement = `Pick one of ${allowed.join(" / ")}`;
     if (!form.githubUrl.trim()) next.githubUrl = "Paste your GitHub repo link";
     if (!form.reportUrl.trim()) next.reportUrl = "Paste your report link";
     if (
@@ -117,7 +126,7 @@ export function TechRound1Panel({
       !/^(https?:\/\/)?([\w-]+\.)+[\w-]{2,}(\/\S*)?$/i.test(form.deployUrl.trim())
     )
       next.deployUrl = "Enter a valid URL or leave it empty";
-    if (next.githubUrl || next.reportUrl || next.deployUrl) {
+    if (next.problemStatement || next.githubUrl || next.reportUrl || next.deployUrl) {
       setErrors(next);
       return;
     }
@@ -127,6 +136,7 @@ export function TechRound1Panel({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          problemStatement: form.problemStatement,
           githubUrl: form.githubUrl.trim(),
           reportUrl: form.reportUrl.trim(),
           deployUrl: form.deployUrl.trim() || "",
@@ -134,6 +144,13 @@ export function TechRound1Panel({
       });
       if (res.status === 423) {
         toast.error("ROUND1_CLOSED", { description: "The deadline passed - hand-in is locked." });
+        return;
+      }
+      if (res.status === 422) {
+        const d = (await res.json().catch(() => null)) as { message?: string } | null;
+        toast.error("STATEMENT_NOT_ALLOWED", {
+          description: d?.message ?? `Your year picks from ${allowed.join(" / ")}.`,
+        });
         return;
       }
       if (!res.ok) throw new Error(String(res.status));
@@ -239,6 +256,68 @@ export function TechRound1Panel({
 
         {/* hand-in form */}
         <form onSubmit={submit} className="space-y-3" aria-label="Round 1 submission form">
+          <fieldset disabled={closed || saving}>
+            <legend className="flex items-center gap-1.5 font-mono text-[10px] tracking-[0.2em] text-muted-foreground">
+              <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+              PROBLEM_STATEMENT · required
+            </legend>
+            <div
+              role="radiogroup"
+              aria-label="Problem statement"
+              className="mt-1.5 grid grid-cols-2 gap-1.5"
+            >
+              {PROBLEM_STATEMENTS.map((p) => {
+                const enabled = allowed.includes(p.id);
+                const picked = form.problemStatement === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={picked}
+                    disabled={!enabled}
+                    title={
+                      enabled
+                        ? p.title
+                        : `Only for ${allowed.includes("03") ? "other" : "2nd/3rd"} years`
+                    }
+                    onClick={() => setForm((f) => ({ ...f, problemStatement: p.id }))}
+                    className={cn(
+                      "border px-3 py-2.5 text-left transition-colors",
+                      picked
+                        ? "border-cyan-300 bg-cyan-300/15"
+                        : enabled
+                          ? "border-border hover:border-cyan-300/50"
+                          : "cursor-not-allowed border-border/50 opacity-35"
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "block font-mono text-sm font-bold tabular-nums",
+                        picked ? "text-cyan-300" : "text-foreground"
+                      )}
+                    >
+                      {p.id}
+                    </span>
+                    <span className="mt-0.5 block font-mono text-[9px] leading-snug text-muted-foreground">
+                      {p.title}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-1.5 font-mono text-[9px] leading-relaxed text-muted-foreground/70">
+              {allowed.length === PROBLEM_STATEMENTS.length
+                ? `${formatYearOfStudy(application.yearOfStudy)} open lane: any of ${allowed.join(" / ")}`
+                : `${formatYearOfStudy(application.yearOfStudy)} lane: pick ${allowed.join(" or ")}`}{" "}
+              · detail for each statement is in the brief above
+            </p>
+            {errors.problemStatement ? (
+              <span className="mt-1 block font-mono text-[10px] text-destructive">
+                {errors.problemStatement}
+              </span>
+            ) : null}
+          </fieldset>
           <Round1Field
             icon={<Github className="h-3.5 w-3.5" aria-hidden="true" />}
             label="GITHUB_LINK · required"

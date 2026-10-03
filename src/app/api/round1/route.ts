@@ -8,6 +8,7 @@ import {
 } from "@/lib/storage";
 import {
   TECH_ROUND1_BRIEF_URL,
+  allowedProblemStatements,
   isTechRound1Candidate,
   techRound1Schema,
 } from "@/lib/tech-round1";
@@ -44,8 +45,9 @@ export async function GET() {
 
 /**
  * POST /api/round1 - Round 1 project hand-in.
- * Body: { githubUrl, reportUrl, deployUrl? }. Re-submits overwrite
- * until the deadline. Only technical SHORTLISTED_R1 students.
+ * Body: { problemStatement ("01".."04"), githubUrl, reportUrl, deployUrl? }.
+ * Statement choice is year-gated (2nd/3rd years: 03/04 only). Re-submits
+ * overwrite until the deadline. Only technical SHORTLISTED_R1 students.
  */
 export async function POST(req: NextRequest) {
   const session = await getAuthSession();
@@ -78,6 +80,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "NOT_ELIGIBLE" }, { status: 403 });
   }
 
+  // year lane: 2nd/3rd years pick from 03/04, everyone else from 01/02
+  const allowed = allowedProblemStatements(application.yearOfStudy);
+  if (!allowed.includes(parsed.data.problemStatement)) {
+    return NextResponse.json(
+      {
+        error: "STATEMENT_NOT_ALLOWED",
+        message: `Year ${application.yearOfStudy} students pick from ${allowed.join(" / ")}.`,
+      },
+      { status: 422 }
+    );
+  }
+
   const deadline = await getTechRound1Deadline();
   if (deadline && Date.now() > new Date(deadline).getTime()) {
     return NextResponse.json({ error: "ROUND1_CLOSED" }, { status: 423 });
@@ -86,6 +100,7 @@ export async function POST(req: NextRequest) {
   try {
     const updated = await submitTechRound1({
       id: application.id,
+      problemStatement: parsed.data.problemStatement,
       githubUrl: parsed.data.githubUrl,
       reportUrl: parsed.data.reportUrl,
       deployUrl: parsed.data.deployUrl?.trim() ? parsed.data.deployUrl.trim() : null,

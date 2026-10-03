@@ -54,7 +54,7 @@ import {
   isTerminalStatus,
   parseStatusHistory,
 } from "@/lib/status";
-import { TECH_ROUND1_BRIEF_URL } from "@/lib/tech-round1";
+import { TECH_ROUND1_BRIEF_URL, problemStatementTitle } from "@/lib/tech-round1";
 import type { ApplicationRecord, DriveStats, NotificationRecord } from "@/lib/storage";
 import { formatYearOfStudy } from "@/lib/vit";
 import { cn } from "@/lib/utils";
@@ -1659,10 +1659,11 @@ function DetailDialog({
       setSlotConflicts(null);
       if (data.emailQueued === false) {
         toast.success(`STATUS_COMMITTED · ${getStatusMeta(draftStatus).label}`, {
-          description:
-            draftStatus === "SHORTLISTED_R1"
-              ? `${application.fullName} - no mail queued. Send the R1 brief mail manually via EMAIL when ready, then flush.`
-              : `${application.fullName} - mail held until you add the interview slot.`,
+          description: `${application.fullName} - mail held until you add the interview slot.`,
+        });
+      } else if (draftStatus === "SHORTLISTED_R1") {
+        toast.success(`STATUS_COMMITTED · ${getStatusMeta(draftStatus).label}`, {
+          description: `${application.fullName} - R1 mail queued in the outbox. Flush when the brief + deadline are final.`,
         });
       } else {
         toast.success(`STATUS_COMMITTED · ${getStatusMeta(draftStatus).label}`, {
@@ -1942,9 +1943,10 @@ function DetailDialog({
                     </a>
                     ) + the global deadline on their Round 1 screen and
                     submits github / report / deploy links there. Committing
-                    R1 queues no mail - nothing goes out automatically. When
-                    the brief + deadline are ready, tick the R1 files → EMAIL
-                    composer → flush from the outbox.
+                    R1 queues the Round 1 mail (brief + deadline + group
+                    link) to the outbox - nothing sends until you flush.
+                    Set the deadline first so the queued copy carries the
+                    real date.
                   </p>
                   {application.department !== "technical" ? (
                     <p className="mt-1.5 font-mono text-[9px] tracking-widest text-destructive">
@@ -1955,8 +1957,11 @@ function DetailDialog({
                 </div>
               ) : null}
 
-              {/* Round 1 hand-in (read-only) - links the student submitted */}
-              {application.round1GithubUrl || application.round1ReportUrl || application.round1DeployUrl ? (
+              {/* Round 1 hand-in (read-only) - statement + links the student submitted */}
+              {application.round1ProblemStatement ||
+              application.round1GithubUrl ||
+              application.round1ReportUrl ||
+              application.round1DeployUrl ? (
                 <div
                   className="mt-3 border border-cyan-300/40 bg-cyan-300/5 p-3"
                   aria-label="Round 1 submission"
@@ -1979,6 +1984,11 @@ function DetailDialog({
                       </span>
                     ) : null}
                   </p>
+                  {application.round1ProblemStatement ? (
+                    <p className="mt-2 inline-block border border-cyan-300/60 bg-cyan-300/10 px-2.5 py-1 font-mono text-[10px] font-bold tracking-widest text-cyan-300">
+                      PS_{problemStatementTitle(application.round1ProblemStatement).toUpperCase()}
+                    </p>
+                  ) : null}
                   <ul className="mt-2 space-y-1.5">
                     {(
                       [
