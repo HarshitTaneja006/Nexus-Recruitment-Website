@@ -6,6 +6,7 @@ import {
   findApplicationByEmail,
   submitApplication,
   resolveUserId,
+  type ApplicationRecord,
 } from "@/lib/storage";
 import { deliverNotificationNow } from "@/lib/mailer";
 import {
@@ -19,7 +20,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** panelNote is admin-only - strip it from every student-facing payload. */
-function stripPanelNote(application: Record<string, unknown>) {
+function stripPanelNote(application: ApplicationRecord) {
   const { panelNote: _omitted, ...studentView } = application;
   return studentView;
 }

@@ -7,6 +7,7 @@ import {
   countPanelSlotReferences,
   getInterviewPanels,
   removeInterviewPanel,
+  renameInterviewPanel,
 } from "@/lib/storage";
 
 export const runtime = "nodejs";
@@ -14,12 +15,17 @@ export const dynamic = "force-dynamic";
 
 const postSchema = z
   .object({
-    action: z.enum(["add", "remove"]),
-    /** panel name - required for action=remove */
+    action: z.enum(["add", "remove", "rename"]),
+    /** panel name - required for action=remove / rename (rename source) */
     name: z.string().max(40).optional(),
+    /** rename destination - required for action=rename */
+    to: z.string().max(40).optional(),
   })
   .refine((v) => v.action === "add" || (v.name?.trim() ?? "") !== "", {
-    message: "name is required for action=remove",
+    message: "name is required for action=remove/rename",
+  })
+  .refine((v) => v.action !== "rename" || (v.to?.trim() ?? "") !== "", {
+    message: "to is required for action=rename",
   });
 
 /**
@@ -42,8 +48,10 @@ export async function GET() {
 
 /**
  * POST /api/admin/panels - { action: "add" } appends the next "Panel N";
- * { action: "remove", name } deletes one (refused while live SHORTLISTED
- * slots reference it, or when it is the last panel standing).
+ * { action: "remove", name } deletes one (refused while live slotted
+ * shortlist rows reference it, or when it is the last panel standing);
+ * { action: "rename", name, to } renames one - scheduled slots referencing
+ * it move along (unlike delete, rename is never blocked by references).
  */
 export async function POST(req: Request) {
   const adminEmail = await getAdminSession();
@@ -72,6 +80,32 @@ export async function POST(req: Request) {
         );
       }
       return NextResponse.json({ panels: result.panels, added: result.added });
+    }
+
+    if (parsed.data.action === "rename") {
+      const from = normalizePanelName(parsed.data.name);
+      const to = normalizePanelName(parsed.data.to);
+      if (!from || !to) {
+        return NextResponse.json({ error: "VALIDATION_FAILED" }, { status: 400 });
+      }
+      const result = await renameInterviewPanel(from, to);
+      if ("error" in result) {
+        if (result.error === "UNKNOWN_PANEL") {
+          return NextResponse.json({ error: "UNKNOWN_PANEL" }, { status: 404 });
+        }
+        if (result.error === "PANEL_TAKEN") {
+          return NextResponse.json(
+            { error: "PANEL_TAKEN", message: `"${to}" already exists - pick another name.` },
+            { status: 409 }
+          );
+        }
+        return NextResponse.json({ error: "VALIDATION_FAILED" }, { status: 400 });
+      }
+      return NextResponse.json({
+        panels: result.panels,
+        renamed: result.renamed,
+        movedSlots: result.movedSlots,
+      });
     }
 
     const name = normalizePanelName(parsed.data.name);

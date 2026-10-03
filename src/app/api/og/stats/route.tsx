@@ -31,6 +31,8 @@ const OK = "#4ade80";
 const STATUS_HEX: Record<string, string> = {
   SUBMITTED: "#38bdf8",
   SHORTLISTED: "#34d399",
+  SHORTLISTED_R1: "#67e8f9",
+  SHORTLISTED_R2: "#5eead4",
   INTERVIEWED: "#a78bfa",
   ACCEPTED: "#4ade80",
   REJECTED: "#ff5f57",

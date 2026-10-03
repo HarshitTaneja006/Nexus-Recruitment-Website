@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getAdminSession } from "@/lib/admin";
-import { isApplicationStatus, isInterviewMode, getStatusMeta } from "@/lib/status";
+import { isApplicationStatus, isInterviewMode, getStatusMeta, isSlottedShortlistStatus } from "@/lib/status";
 import { getDepartmentName, getDomainWhatsappGroupLink, DEFAULT_INTERVIEW_PANEL, normalizePanelName } from "@/lib/departments";
 import { NEXUS_COMMUNITY_ENV_KEY, getNexusCommunityLink } from "@/lib/community";
 import { certificatePathForEmail, CERTIFICATE_BUCKET } from "@/lib/certificates";
@@ -40,6 +40,9 @@ const patchSchema = z.object({
  * (all or selected rows). Only submission receipts auto-send.
  * A SHORTLISTED commit without an interview slot is held back (no mail)
  * until the slot is added - response carries emailQueued for the console.
+ * A SHORTLISTED_R1 commit never queues mail: core sends the Round 1
+ * brief/deadline mail manually via the EMAIL composer when the brief +
+ * deadline are ready, then flushes it from the outbox.
  */
 export async function PATCH(
   req: NextRequest,
@@ -64,6 +67,21 @@ export async function PATCH(
     return NextResponse.json({ error: "VALIDATION_FAILED" }, { status: 400 });
   }
 
+  // tech two-stage shortlist is tech-only: R1/R2 on any other
+  // department is a data error - refuse so filters stay meaningful.
+  if (parsed.data.status === "SHORTLISTED_R1" || parsed.data.status === "SHORTLISTED_R2") {
+    const current = await getApplicationById(id);
+    if (!current) {
+      return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+    }
+    if (current.department !== "technical") {
+      return NextResponse.json(
+        { error: "TECH_ONLY", message: "SHORTLISTED_R1/R2 are technical-department stages only." },
+        { status: 422 }
+      );
+    }
+  }
+
   // interview slot sanity: must parse, must be a valid mode when present
   const interviewAt =
     parsed.data.interviewAt && !Number.isNaN(Date.parse(parsed.data.interviewAt))
@@ -76,9 +94,12 @@ export async function PATCH(
 
   // interview panel: explicit choice wins (validated against the roster),
   // otherwise keep the file's panel, otherwise the drive default. Only
-  // meaningful for SHORTLISTED slots - other statuses leave it untouched.
+  // meaningful for slotted shortlists (SHORTLISTED + SHORTLISTED_R2) -
+  // SHORTLISTED_R1 never carries a slot, only a deadline. Other statuses
+  // leave the panel untouched.
+  const slotted = isSlottedShortlistStatus(parsed.data.status);
   let interviewPanel: string | null | undefined;
-  if (parsed.data.status === "SHORTLISTED" && interviewAt) {
+  if (slotted && interviewAt) {
     const panels = await getInterviewPanels();
     const explicit = normalizePanelName(parsed.data.interviewPanel);
     if (parsed.data.interviewPanel != null && explicit === null) {
@@ -102,7 +123,8 @@ export async function PATCH(
   // overlap guard, scoped to the slot's panel: warn when another candidate
   // on the SAME panel already holds a slot within ±45min. Other panels may
   // run the same clock time in parallel. Force still double-books.
-  if (parsed.data.status === "SHORTLISTED" && interviewAt && !parsed.data.force) {
+  // Applies to SHORTLISTED + SHORTLISTED_R2 (both slotted); R1 has no slot.
+  if (slotted && interviewAt && !parsed.data.force) {
     try {
       const conflicts = await findInterviewConflicts({
         excludeId: id,
@@ -157,9 +179,13 @@ export async function PATCH(
     // Queue the student-facing email - core flushes the outbox manually
     // (FLUSH_QUEUE or FLUSH_SELECTED). Best-effort: a notification failure
     // must never block the review action.
-    // Exception: a SHORTLISTED commit without an interview slot holds the
-    // mail - the student is notified once the slot is actually added.
-    const holdMail = parsed.data.status === "SHORTLISTED" && !interviewAt;
+    // Held (no mail queued):
+    //  - slotted-shortlist commit without an interview slot (notified once
+    //    the slot is actually added);
+    //  - SHORTLISTED_R1, always (core sends the Round 1 brief/deadline mail
+    //    manually via the EMAIL composer when ready, then flushes).
+    const holdMail =
+      parsed.data.status === "SHORTLISTED_R1" || (slotted && !interviewAt);
     let emailQueued = false;
     if (!holdMail) {
       try {
@@ -192,7 +218,10 @@ export async function PATCH(
             parts.push("", `Interview panel: ${updated.interviewPanel} - report there for your slot.`);
           }
         }
-        if (parsed.data.status === "SHORTLISTED") {
+        if (
+          parsed.data.status === "SHORTLISTED" ||
+          parsed.data.status === "SHORTLISTED_R2"
+        ) {
           const groupLink = getDomainWhatsappGroupLink(updated.department);
           if (groupLink) {
             parts.push(

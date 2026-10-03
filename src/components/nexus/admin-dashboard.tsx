@@ -26,8 +26,10 @@ import {
   Unlock,
   MailPlus,
   KeyRound,
+  Check,
   CheckSquare,
   Square,
+  Pencil,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -38,6 +40,7 @@ import {
   getDepartment,
   LEGACY_QUESTION_LABELS,
   DEFAULT_INTERVIEW_PANEL,
+  MAX_PANEL_NAME_LENGTH,
   resolveSlotPanel,
   type Links,
 } from "@/lib/departments";
@@ -47,9 +50,11 @@ import {
   INTERVIEW_MODE_META,
   getStatusMeta,
   isInterviewMode,
+  isSlottedShortlistStatus,
   isTerminalStatus,
   parseStatusHistory,
 } from "@/lib/status";
+import { TECH_ROUND1_BRIEF_URL } from "@/lib/tech-round1";
 import type { ApplicationRecord, DriveStats, NotificationRecord } from "@/lib/storage";
 import { formatYearOfStudy } from "@/lib/vit";
 import { cn } from "@/lib/utils";
@@ -190,12 +195,12 @@ export function AdminDashboard() {
     return Math.max(1, ...Object.values(data.stats.byDepartment));
   }, [data]);
 
-  /** files currently SHORTLISTED - badge for the AGENDA tab (slots live here) */
+  /** files on a slotted shortlist - badge for the AGENDA tab (slots live here) */
   const interviewCount = useMemo(() => {
     if (!data) return 0;
     let n = 0;
     for (const bucket of Object.values(data.stats.byDepartmentStatus))
-      n += bucket["SHORTLISTED"] ?? 0;
+      n += (bucket["SHORTLISTED"] ?? 0) + (bucket["SHORTLISTED_R2"] ?? 0);
     return n;
   }, [data]);
 
@@ -1547,6 +1552,7 @@ function DetailDialog({
     }
   }, [application]);
 
+  const slottedDraft = isSlottedShortlistStatus(draftStatus);
   const dirty =
     application &&
     (draftStatus !== application.status ||
@@ -1554,17 +1560,26 @@ function DetailDialog({
       draftPanelNote !== (application.panelNote ?? "") ||
       slotDate !== isoToIstParts(application.interviewAt).date ||
       slotTime !== isoToIstParts(application.interviewAt).time ||
-      (draftStatus === "SHORTLISTED" &&
+      (slottedDraft &&
         (slotMode !== (application.interviewMode ?? "GOOGLE_MEET") ||
           slotPanel !== resolveSlotPanel(application.interviewPanel))));
 
   const commit = async (force = false) => {
     if (!application || !dirty) return;
+    // R1/R2 are technical-only - stop a misclick before the server does.
+    if (
+      (draftStatus === "SHORTLISTED_R1" || draftStatus === "SHORTLISTED_R2") &&
+      application.department !== "technical"
+    ) {
+      toast.error("TECH_ONLY", {
+        description: "SHORTLISTED_R1/R2 are technical-department stages - pick SHORTLISTED for this file.",
+      });
+      return;
+    }
     setSaving(true);
-    const interviewAt =
-      draftStatus === "SHORTLISTED" ? istPartsToIso(slotDate, slotTime) : null;
-    const interviewMode = draftStatus === "SHORTLISTED" ? slotMode : null;
-    const interviewPanel = draftStatus === "SHORTLISTED" ? slotPanel : null;
+    const interviewAt = slottedDraft ? istPartsToIso(slotDate, slotTime) : null;
+    const interviewMode = slottedDraft ? slotMode : null;
+    const interviewPanel = slottedDraft ? slotPanel : null;
     const optimistic: ApplicationRecord = {
       ...application,
       status: draftStatus,
@@ -1644,7 +1659,10 @@ function DetailDialog({
       setSlotConflicts(null);
       if (data.emailQueued === false) {
         toast.success(`STATUS_COMMITTED · ${getStatusMeta(draftStatus).label}`, {
-          description: `${application.fullName} - mail held until you add the interview slot.`,
+          description:
+            draftStatus === "SHORTLISTED_R1"
+              ? `${application.fullName} - no mail queued. Send the R1 brief mail manually via EMAIL when ready, then flush.`
+              : `${application.fullName} - mail held until you add the interview slot.`,
         });
       } else {
         toast.success(`STATUS_COMMITTED · ${getStatusMeta(draftStatus).label}`, {
@@ -1862,19 +1880,38 @@ function DetailDialog({
                 {APPLICATION_STATUSES.map((s) => {
                   const meta = getStatusMeta(s);
                   const active = draftStatus === s;
+                  // department lanes: R1/R2 are technical-only, plain
+                  // SHORTLISTED is non-tech-only. The file's current
+                  // status stays clickable so legacy rows can move off it.
+                  const isTech = application.department === "technical";
+                  const offLane =
+                    (isTech && s === "SHORTLISTED") ||
+                    (!isTech &&
+                      (s === "SHORTLISTED_R1" || s === "SHORTLISTED_R2"));
+                  const disabled = offLane && !active;
                   return (
                     <button
                       key={s}
                       type="button"
                       role="radio"
                       aria-checked={active}
-                      title={meta.adminHint}
+                      aria-disabled={disabled || undefined}
+                      title={
+                        disabled
+                          ? isTech
+                            ? "tech lane - use SHORTLISTED_R1 / SHORTLISTED_R2 for this file"
+                            : "tech-only stage - use SHORTLISTED for this file"
+                          : meta.adminHint
+                      }
+                      disabled={disabled}
                       onClick={() => setDraftStatus(s)}
                       className={cn(
                         "border px-2 py-1 font-mono text-[9px] tracking-widest transition-colors",
                         active
                           ? meta.chipClass
-                          : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                          : disabled
+                            ? "cursor-not-allowed border-border/50 text-muted-foreground/30"
+                            : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
                       )}
                     >
                       {meta.label}
@@ -1883,8 +1920,92 @@ function DetailDialog({
                 })}
               </div>
 
-              {/* interview slot scheduler - appears for status = SHORTLISTED */}
-              {draftStatus === "SHORTLISTED" ? (
+              {/* R1 explainer - no slot on this round, only deadline + hand-in */}
+              {draftStatus === "SHORTLISTED_R1" ? (
+                <div
+                  className="mt-3 border border-cyan-300/40 bg-cyan-300/5 p-3"
+                  aria-label="Round 1 - no interview slot"
+                >
+                  <p className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.25em] text-cyan-300">
+                    <CalendarClock className="h-3 w-3" aria-hidden="true" />
+                    round 1 · project - no slot
+                  </p>
+                  <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground">
+                    Tech only. The student sees the brief (
+                    <a
+                      href={TECH_ROUND1_BRIEF_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-cyan-300 hover:underline"
+                    >
+                      tech-round1-brief.pdf
+                    </a>
+                    ) + the global deadline on their Round 1 screen and
+                    submits github / report / deploy links there. Committing
+                    R1 queues no mail - nothing goes out automatically. When
+                    the brief + deadline are ready, tick the R1 files → EMAIL
+                    composer → flush from the outbox.
+                  </p>
+                  {application.department !== "technical" ? (
+                    <p className="mt-1.5 font-mono text-[9px] tracking-widest text-destructive">
+                      TECH_ONLY - this file is d {application.department}/, pick
+                      SHORTLISTED instead.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {/* Round 1 hand-in (read-only) - links the student submitted */}
+              {application.round1GithubUrl || application.round1ReportUrl || application.round1DeployUrl ? (
+                <div
+                  className="mt-3 border border-cyan-300/40 bg-cyan-300/5 p-3"
+                  aria-label="Round 1 submission"
+                >
+                  <p className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.25em] text-cyan-300">
+                    <Send className="h-3 w-3" aria-hidden="true" />
+                    round1 hand-in
+                    {application.round1SubmittedAt ? (
+                      <span className="text-muted-foreground/70">
+                        ·{" "}
+                        {new Date(application.round1SubmittedAt).toLocaleString("en-IN", {
+                          timeZone: "Asia/Kolkata",
+                          day: "2-digit",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: false,
+                        })}{" "}
+                        IST
+                      </span>
+                    ) : null}
+                  </p>
+                  <ul className="mt-2 space-y-1.5">
+                    {(
+                      [
+                        ["github", application.round1GithubUrl],
+                        ["report", application.round1ReportUrl],
+                        ["deploy", application.round1DeployUrl],
+                      ] as [string, string | null][]
+                    )
+                      .filter(([, v]) => v?.trim())
+                      .map(([k, v]) => (
+                        <li key={k}>
+                          <a
+                            href={v!.startsWith("http") ? v! : `https://${v!}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex max-w-full items-center gap-1.5 break-all border border-border bg-secondary/40 px-2.5 py-1 text-[10px] tracking-wider text-cyan-300 transition-colors [overflow-wrap:anywhere] hover:bg-secondary"
+                          >
+                            {k}: {v} <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
+                          </a>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              ) : null}
+
+              {/* interview slot scheduler - appears for slotted shortlists */}
+              {slottedDraft ? (
                 <div
                   className="mt-3 border border-fuchsia-400/40 bg-fuchsia-400/5 p-3"
                   aria-label="Interview slot scheduler"
@@ -1892,7 +2013,14 @@ function DetailDialog({
                   <p className="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.25em] text-fuchsia-400">
                     <CalendarClock className="h-3 w-3" aria-hidden="true" />
                     schedule slot · IST (Asia/Kolkata)
+                    {draftStatus === "SHORTLISTED_R2" ? " · tech round 2" : ""}
                   </p>
+                  {draftStatus === "SHORTLISTED_R2" && application.department !== "technical" ? (
+                    <p className="mt-1.5 font-mono text-[9px] tracking-widest text-destructive">
+                      TECH_ONLY - this file is d {application.department}/, pick
+                      SHORTLISTED instead.
+                    </p>
+                  ) : null}
                   <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                     <label className="flex flex-col gap-1">
                       <span className="text-[9px] tracking-widest text-muted-foreground">
@@ -1982,7 +2110,7 @@ function DetailDialog({
               ) : null}
 
               {/* slot overlap guard - the server refused the double-booking */}
-              {slotConflicts && slotConflicts.length > 0 && draftStatus === "SHORTLISTED" ? (
+              {slotConflicts && slotConflicts.length > 0 && slottedDraft ? (
                 <div
                   className="mt-3 border border-destructive/50 bg-destructive/5 p-3"
                   role="alert"
@@ -2254,6 +2382,8 @@ function PanelManager({
 }) {
   const [panels, setPanels] = useState<string[]>([DEFAULT_INTERVIEW_PANEL]);
   const [busy, setBusy] = useState(false);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -2283,13 +2413,15 @@ function PanelManager({
     return map;
   }, [apps]);
 
-  const mutate = async (action: "add" | "remove", name?: string) => {
+  const mutate = async (action: "add" | "remove" | "rename", name?: string, to?: string) => {
     setBusy(true);
     try {
       const res = await fetch("/api/admin/panels", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(name ? { action, name } : { action }),
+        body: JSON.stringify(
+          to !== undefined ? { action, name, to } : name ? { action, name } : { action }
+        ),
       });
       const data = (await res.json().catch(() => null)) as {
         error?: string;
@@ -2297,6 +2429,8 @@ function PanelManager({
         panels?: string[];
         added?: string;
         removed?: string;
+        renamed?: { from: string; to: string };
+        movedSlots?: number;
       } | null;
       if (!res.ok || !data?.panels) {
         toast.error(data?.error ?? "PANEL_UPDATE_FAILED", {
@@ -2312,6 +2446,11 @@ function PanelManager({
         toast.success(`PANEL_ADDED · ${data.added}`, {
           description: "Two panels can now interview the same slot in parallel.",
         });
+      } else if (action === "rename" && data.renamed) {
+        setRenaming(null);
+        toast.success(`PANEL_RENAMED · ${data.renamed.from} → ${data.renamed.to}`, {
+          description: `${data.movedSlots ?? 0} scheduled slot(s) moved with it.`,
+        });
       } else {
         toast.success(`PANEL_REMOVED · ${data.removed}`, {
           description: "Roster updated.",
@@ -2324,6 +2463,15 @@ function PanelManager({
     } finally {
       setBusy(false);
     }
+  };
+
+  const saveRename = (panel: string) => {
+    const next = draft.trim().replace(/\s+/g, " ");
+    if (!next || next === panel) {
+      setRenaming(null); // nothing to do - not an error
+      return;
+    }
+    void mutate("rename", panel, next);
   };
 
   return (
@@ -2345,33 +2493,290 @@ function PanelManager({
         </button>
       </div>
       <div className="flex flex-wrap items-center gap-2 p-4">
-        {panels.map((p) => (
-          <span
-            key={p}
-            className="inline-flex items-center gap-2 border border-fuchsia-400/40 bg-fuchsia-400/5 px-2.5 py-1 font-mono text-[10px] tracking-widest text-foreground"
-          >
-            {p}
-            <span className="text-muted-foreground/70 tabular-nums">
-              {counts.get(p) ?? 0} SLOTS
-            </span>
-            {panels.length > 1 ? (
+        {panels.map((p) =>
+          renaming === p ? (
+            <span
+              key={p}
+              className="inline-flex items-center gap-1.5 border border-cyan-300/60 bg-cyan-300/5 px-2 py-1"
+            >
+              <input
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveRename(p);
+                  if (e.key === "Escape") setRenaming(null);
+                }}
+                maxLength={MAX_PANEL_NAME_LENGTH}
+                autoFocus
+                aria-label={`Rename ${p}`}
+                placeholder={p}
+                className="h-6 w-32 border border-input bg-background/80 px-1.5 font-mono text-[10px] tracking-widest text-foreground focus:border-cyan-300 focus:outline-none"
+              />
               <button
                 type="button"
-                onClick={() => mutate("remove", p)}
-                disabled={busy}
-                title={`delete ${p}`}
-                aria-label={`Delete ${p}`}
-                className="text-muted-foreground/70 transition-colors hover:text-destructive disabled:opacity-40"
+                onClick={() => saveRename(p)}
+                disabled={busy || !draft.trim()}
+                title="save the new name"
+                aria-label={`Save new name for ${p}`}
+                className="text-cyan-300 transition-colors hover:text-foreground disabled:opacity-40"
               >
-                <Trash2 className="h-3 w-3" aria-hidden="true" />
+                <Check className="h-3 w-3" aria-hidden="true" />
               </button>
-            ) : null}
-          </span>
-        ))}
+              <button
+                type="button"
+                onClick={() => setRenaming(null)}
+                disabled={busy}
+                title="cancel rename"
+                aria-label="Cancel rename"
+                className="text-muted-foreground/70 transition-colors hover:text-foreground disabled:opacity-40"
+              >
+                <X className="h-3 w-3" aria-hidden="true" />
+              </button>
+            </span>
+          ) : (
+            <span
+              key={p}
+              className="inline-flex items-center gap-2 border border-fuchsia-400/40 bg-fuchsia-400/5 px-2.5 py-1 font-mono text-[10px] tracking-widest text-foreground"
+            >
+              {p}
+              <span className="text-muted-foreground/70 tabular-nums">
+                {counts.get(p) ?? 0} SLOTS
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setRenaming(p);
+                  setDraft(p);
+                }}
+                disabled={busy}
+                title={`rename ${p}`}
+                aria-label={`Rename ${p}`}
+                className="text-muted-foreground/70 transition-colors hover:text-cyan-300 disabled:opacity-40"
+              >
+                <Pencil className="h-3 w-3" aria-hidden="true" />
+              </button>
+              {panels.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={() => mutate("remove", p)}
+                  disabled={busy}
+                  title={`delete ${p}`}
+                  aria-label={`Delete ${p}`}
+                  className="text-muted-foreground/70 transition-colors hover:text-destructive disabled:opacity-40"
+                >
+                  <Trash2 className="h-3 w-3" aria-hidden="true" />
+                </button>
+              ) : null}
+            </span>
+          )
+        )}
       </div>
       <p className="border-t border-border/60 bg-background/40 px-4 py-1.5 font-mono text-[9px] text-muted-foreground/60">
-        slots clash only within a panel - the same time on different panels runs parallel · a panel with scheduled slots can't be deleted
+        slots clash only within a panel - the same time on different panels runs parallel · a panel with scheduled slots can't be deleted · renaming moves its slots along
       </p>
+    </section>
+  );
+}
+
+/**
+ * Tech Round 1 manager: global R1 deadline (no per-file slots on this
+ * round) + live hand-in tally. The deadline is a Setting row
+ * (tech_round1_deadline) - PUT /api/admin/tech-round1-deadline.
+ */
+function TechRound1Manager() {
+  const [deadline, setDeadline] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [apps, setApps] = useState<ApplicationRecord[] | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const [dRes, aRes] = await Promise.all([
+        fetch("/api/admin/tech-round1-deadline", { cache: "no-store" }),
+        fetch("/api/admin/applications?status=SHORTLISTED_R1", { cache: "no-store" }),
+      ]);
+      if (dRes.ok) {
+        const d = (await dRes.json()) as { deadline: string | null };
+        setDeadline(d.deadline);
+        const parts = isoToIstParts(d.deadline);
+        setDate(parts.date);
+        setTime(parts.time);
+      }
+      if (aRes.ok) {
+        const p = (await aRes.json()) as AdminPayload;
+        setApps(p.applications);
+      }
+    } catch {
+      /* strip stays silent - never blocks the console */
+    } finally {
+      setLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const save = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const iso = istPartsToIso(date, time);
+      if (!iso) {
+        toast.error("BAD_DEADLINE", { description: "Pick both a date and a time (IST)." });
+        return;
+      }
+      const res = await fetch("/api/admin/tech-round1-deadline", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deadline: iso }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      const d = (await res.json()) as { deadline: string | null };
+      setDeadline(d.deadline);
+      toast.success("ROUND1_DEADLINE_SET", {
+        description: d.deadline
+          ? new Date(d.deadline).toLocaleString("en-IN", {
+              timeZone: "Asia/Kolkata",
+              day: "2-digit",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            }) + " IST"
+          : "cleared",
+      });
+    } catch {
+      toast.error("DEADLINE_SAVE_FAILED");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const clear = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/admin/tech-round1-deadline", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deadline: null }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      setDeadline(null);
+      setDate("");
+      setTime("");
+      toast.success("ROUND1_DEADLINE_CLEARED", {
+        description: "Hand-ins stay open until a new deadline is set.",
+      });
+    } catch {
+      toast.error("DEADLINE_SAVE_FAILED");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const submitted = (apps ?? []).filter((a) => a.round1SubmittedAt).length;
+
+  return (
+    <section className="terminal-panel border-cyan-300/30" aria-label="Tech Round 1 manager">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-cyan-300/30 bg-cyan-300/10 px-4 py-2">
+        <span className="flex items-center gap-1.5 font-mono text-[10px] tracking-[0.2em] text-cyan-300">
+          <Send className="h-3 w-3" aria-hidden="true" />
+          $ round1 --manage · {(apps ?? []).length} R1 · {submitted} SUBMITTED
+        </span>
+        <a
+          href={TECH_ROUND1_BRIEF_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 font-mono text-[9px] tracking-widest text-cyan-300/80 hover:text-cyan-300"
+        >
+          BRIEF_PDF <ExternalLink className="h-3 w-3" aria-hidden="true" />
+        </a>
+      </div>
+      <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
+        <label className="flex flex-col gap-1">
+          <span className="font-mono text-[9px] tracking-widest text-muted-foreground">
+            DEADLINE_DATE_IST
+          </span>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            aria-label="Round 1 deadline date (IST)"
+            className="h-8 border border-input bg-background/80 px-2 text-[11px] text-foreground focus:border-cyan-300 focus:outline-none"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="font-mono text-[9px] tracking-widest text-muted-foreground">
+            DEADLINE_TIME_IST
+          </span>
+          <input
+            type="time"
+            value={time}
+            onChange={(e) => setTime(e.target.value)}
+            aria-label="Round 1 deadline time (IST)"
+            className="h-8 border border-input bg-background/80 px-2 text-[11px] text-foreground focus:border-cyan-300 focus:outline-none"
+          />
+        </label>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving || !date || !time}
+            className="inline-flex h-8 items-center border border-cyan-300/60 bg-cyan-300/10 px-3 font-mono text-[10px] font-bold tracking-widest text-cyan-300 transition-colors enabled:hover:bg-cyan-300 enabled:hover:text-[#05080d] disabled:opacity-40"
+          >
+            {saving ? "SAVING…" : "SET_DEADLINE"}
+          </button>
+          {deadline ? (
+            <button
+              type="button"
+              onClick={clear}
+              disabled={saving}
+              className="inline-flex h-8 items-center border border-border px-3 font-mono text-[10px] tracking-widest text-muted-foreground transition-colors hover:border-destructive/50 hover:text-destructive disabled:opacity-40"
+            >
+              CLEAR
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={load}
+            className="inline-flex h-8 items-center border border-border px-3 font-mono text-[10px] tracking-widest text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
+          >
+            <RefreshCw className="h-3 w-3" aria-hidden="true" />
+          </button>
+        </div>
+        <p className="font-mono text-[9px] leading-relaxed text-muted-foreground/70 sm:ml-auto sm:text-right">
+          {loaded ? (
+            deadline ? (
+              <>
+                live deadline:{" "}
+                {new Date(deadline).toLocaleString("en-IN", {
+                  timeZone: "Asia/Kolkata",
+                  day: "2-digit",
+                  month: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: false,
+                })}{" "}
+                IST
+                <br />
+                R1 students hand in on /round1 - no slots on this round.
+              </>
+            ) : (
+              <>
+                no deadline set - hand-ins stay open.
+                <br />
+                Upload the brief to public/tech-round1-brief.pdf.
+              </>
+            )
+          ) : (
+            "reading round1 state…"
+          )}
+        </p>
+      </div>
     </section>
   );
 }
@@ -2387,8 +2792,10 @@ function AgendaPanel({ onOpen }: { onOpen: (app: ApplicationRecord) => void }) {
   const load = useCallback(async () => {
     setScanning(true);
     try {
-      // drive-wide: the agenda ignores the applications-tab filters on purpose
-      const res = await fetch("/api/admin/applications?status=SHORTLISTED", {
+      // drive-wide: the agenda ignores the applications-tab filters on purpose.
+      // Both slotted shortlists (SHORTLISTED + tech SHORTLISTED_R2) land here;
+      // SHORTLISTED_R1 never carries a slot (deadline + hand-in instead).
+      const res = await fetch("/api/admin/applications?status=SHORTLISTED,SHORTLISTED_R2", {
         cache: "no-store",
       });
       if (!res.ok) throw new Error(String(res.status));
@@ -2503,6 +2910,7 @@ function AgendaPanel({ onOpen }: { onOpen: (app: ApplicationRecord) => void }) {
 
   return (
     <>
+      <TechRound1Manager />
       <PanelManager apps={apps} onChanged={load} />
       <section className="terminal-panel mt-4" aria-label="Interview agenda">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-secondary/50 px-4 py-2">
@@ -2735,7 +3143,7 @@ function OpsDayStrip({ onOpen }: { onOpen: (app: ApplicationRecord) => void }) {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/applications?status=SHORTLISTED", {
+      const res = await fetch("/api/admin/applications?status=SHORTLISTED,SHORTLISTED_R2", {
         cache: "no-store",
       });
       if (!res.ok) throw new Error(String(res.status));
@@ -3083,6 +3491,8 @@ const TEMPLATE_VARS = [
   ["{{status}}", "current status"],
   ["{{year}}", "year of study"],
   ["{{whatsapp}}", "WhatsApp number on file"],
+  ["{{round1deadline}}", "live R1 deadline (tech Round 1 mail)"],
+  ["{{round1brief}}", "absolute R1 brief PDF link"],
 ] as const;
 
 function EmailComposer({
@@ -3110,7 +3520,10 @@ function EmailComposer({
         .replaceAll("{{domain}}", getDepartment(a.department)?.name ?? a.department)
         .replaceAll("{{status}}", a.status)
         .replaceAll("{{year}}", String(a.yearOfStudy))
-        .replaceAll("{{whatsapp}}", a.whatsapp || "-");
+        .replaceAll("{{whatsapp}}", a.whatsapp || "-")
+        // preview-only stand-ins - the server merges the live values on send
+        .replaceAll("{{round1deadline}}", "(live R1 deadline merged on send)")
+        .replaceAll("{{round1brief}}", TECH_ROUND1_BRIEF_URL);
     return { subject: merge(subject), message: merge(message) };
   }, [apps, subject, message]);
 

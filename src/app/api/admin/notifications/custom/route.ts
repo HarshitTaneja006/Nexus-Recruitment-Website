@@ -4,9 +4,11 @@ import { getAdminSession } from "@/lib/admin";
 import {
   listApplications,
   queueNotification,
+  getTechRound1Deadline,
 } from "@/lib/storage";
 import { getDepartmentName } from "@/lib/departments";
 import { getStatusLabel } from "@/lib/status";
+import { TECH_ROUND1_BRIEF_URL } from "@/lib/tech-round1";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,7 +23,9 @@ const bodySchema = z.object({
 /**
  * POST /api/admin/notifications/custom - compose + queue a custom email to
  * the selected applicants from the review console. Template variables are
- * merged per student: {{name}} {{domain}} {{status}} {{year}}.
+ * merged per student: {{name}} {{domain}} {{status}} {{year}} {{whatsapp}}
+ * plus the global Round 1 helpers {{round1deadline}} {{round1brief}} (for
+ * the manually-sent SHORTLISTED_R1 brief mail - R1 commits queue nothing).
  * Rows land in the outbox as type=CUSTOM; FLUSH_QUEUE delivers via SMTP.
  */
 export async function POST(req: Request) {
@@ -47,8 +51,24 @@ export async function POST(req: Request) {
   const { ids, subject, message } = parsed.data;
 
   try {
-    const all = await listApplications({});
+    const [all, round1Deadline] = await Promise.all([
+      listApplications({}),
+      getTechRound1Deadline(),
+    ]);
     const byId = new Map(all.map((a) => [a.id, a]));
+    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "https://nexus.runs-on.dev").replace(/\/$/, "");
+    const round1Brief = `${siteUrl}${TECH_ROUND1_BRIEF_URL}`;
+    const round1DeadlineLabel = round1Deadline
+      ? new Date(round1Deadline).toLocaleString("en-IN", {
+          timeZone: "Asia/Kolkata",
+          weekday: "long",
+          day: "2-digit",
+          month: "long",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        }) + " IST"
+      : "to be announced - watch the WhatsApp group";
 
     let queued = 0;
     const missing: string[] = [];
@@ -69,7 +89,9 @@ export async function POST(req: Request) {
           .replaceAll("{{domain}}", getDepartmentName(app.department))
           .replaceAll("{{status}}", getStatusLabel(app.status))
           .replaceAll("{{year}}", String(app.yearOfStudy))
-          .replaceAll("{{whatsapp}}", app.whatsapp || "-");
+          .replaceAll("{{whatsapp}}", app.whatsapp || "-")
+          .replaceAll("{{round1deadline}}", round1DeadlineLabel)
+          .replaceAll("{{round1brief}}", round1Brief);
 
       await queueNotification({
         applicationId: app.id,
