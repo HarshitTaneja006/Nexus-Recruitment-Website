@@ -4,16 +4,6 @@
 --     github / report / deploy submission stored on the row)
 --   SHORTLISTED_R2 -> interview round (slot behaves like SHORTLISTED)
 --
--- HOW TO APPLY (do NOT edit the dashboard tables by hand):
---   Option A - Supabase CLI (recommended, versioned):
---     supabase db push
---   Option B - hosted SQL editor (one-off):
---     copy/paste this whole file into
---     Supabase Dashboard -> SQL Editor -> New query -> Run.
--- Safe to re-run: every statement is IF NOT EXISTS / idempotent.
--- After applying, run `npx prisma db push` (or `prisma migrate dev`)
--- against the same DATABASE_URL so the local Prisma client picks up
--- the new columns.
 -- ============================================================
 
 -- 1. Round 1 submission columns on public.applications

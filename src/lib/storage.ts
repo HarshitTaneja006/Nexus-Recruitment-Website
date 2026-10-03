@@ -1218,6 +1218,77 @@ export async function removeInterviewPanel(panel: string): Promise<string[]> {
   return setInterviewPanels(updated.length > 0 ? updated : [DEFAULT_INTERVIEW_PANEL]);
 }
 
+/**
+ * Rename a panel: roster entry plus every scheduled slot referencing it
+ * move together (unlike delete, which is blocked while referenced).
+ * Renaming the default panel also materializes legacy null-panel slots
+ * (they resolve to the default implicitly) so no slot is orphaned.
+ */
+export async function renameInterviewPanel(
+  from: string,
+  to: string
+): Promise<
+  | { panels: string[]; renamed: { from: string; to: string }; movedSlots: number }
+  | { error: "UNKNOWN_PANEL" | "PANEL_TAKEN" | "SAME_NAME" | "BAD_NAME" }
+> {
+  const oldName = normalizePanelName(from);
+  const newName = normalizePanelName(to);
+  if (!oldName || !newName) return { error: "BAD_NAME" };
+  if (oldName === newName) return { error: "SAME_NAME" };
+  const panels = await getInterviewPanels();
+  if (!panels.includes(oldName)) return { error: "UNKNOWN_PANEL" };
+  if (panels.some((p) => p !== oldName && p.toLowerCase() === newName.toLowerCase())) {
+    return { error: "PANEL_TAKEN" };
+  }
+
+  let movedSlots = 0;
+  if (isSupabaseConfigured) {
+    const supabase = getSupabaseAdmin();
+    if (supabase) {
+      const { data: moved, error } = await supabase
+        .from(SUPABASE_TABLES.applications)
+        .update({ interview_panel: newName })
+        .eq("interview_panel", oldName)
+        .select("id");
+      if (error) throw new Error(`Supabase panel rename failed: ${error.message}`);
+      movedSlots += moved?.length ?? 0;
+      if (oldName === DEFAULT_INTERVIEW_PANEL) {
+        const { data: movedNull, error: nullError } = await supabase
+          .from(SUPABASE_TABLES.applications)
+          .update({ interview_panel: newName })
+          .is("interview_panel", null)
+          .in("status", [...SLOTTED_STATUSES])
+          .not("interview_at", "is", null)
+          .select("id");
+        if (nullError) throw new Error(`Supabase panel rename failed: ${nullError.message}`);
+        movedSlots += movedNull?.length ?? 0;
+      }
+    }
+  } else {
+    const explicit = await db.application.updateMany({
+      where: { interviewPanel: oldName },
+      data: { interviewPanel: newName },
+    });
+    movedSlots += explicit.count;
+    if (oldName === DEFAULT_INTERVIEW_PANEL) {
+      const legacy = await db.application.updateMany({
+        where: {
+          interviewPanel: null,
+          interviewAt: { not: null },
+          status: { in: [...SLOTTED_STATUSES] },
+        },
+        data: { interviewPanel: newName },
+      });
+      movedSlots += legacy.count;
+    }
+  }
+
+  const updated = await setInterviewPanels(
+    panels.map((p) => (p === oldName ? newName : p))
+  );
+  return { panels: updated, renamed: { from: oldName, to: newName }, movedSlots };
+}
+
 /* ------------------------------------------------------------------ */
 /* Tech Round 1 (SHORTLISTED_R1 project round - no interview slot)     */
 /* ------------------------------------------------------------------ */

@@ -26,8 +26,10 @@ import {
   Unlock,
   MailPlus,
   KeyRound,
+  Check,
   CheckSquare,
   Square,
+  Pencil,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -38,6 +40,7 @@ import {
   getDepartment,
   LEGACY_QUESTION_LABELS,
   DEFAULT_INTERVIEW_PANEL,
+  MAX_PANEL_NAME_LENGTH,
   resolveSlotPanel,
   type Links,
 } from "@/lib/departments";
@@ -2377,6 +2380,8 @@ function PanelManager({
 }) {
   const [panels, setPanels] = useState<string[]>([DEFAULT_INTERVIEW_PANEL]);
   const [busy, setBusy] = useState(false);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -2406,13 +2411,15 @@ function PanelManager({
     return map;
   }, [apps]);
 
-  const mutate = async (action: "add" | "remove", name?: string) => {
+  const mutate = async (action: "add" | "remove" | "rename", name?: string, to?: string) => {
     setBusy(true);
     try {
       const res = await fetch("/api/admin/panels", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(name ? { action, name } : { action }),
+        body: JSON.stringify(
+          to !== undefined ? { action, name, to } : name ? { action, name } : { action }
+        ),
       });
       const data = (await res.json().catch(() => null)) as {
         error?: string;
@@ -2420,6 +2427,8 @@ function PanelManager({
         panels?: string[];
         added?: string;
         removed?: string;
+        renamed?: { from: string; to: string };
+        movedSlots?: number;
       } | null;
       if (!res.ok || !data?.panels) {
         toast.error(data?.error ?? "PANEL_UPDATE_FAILED", {
@@ -2435,6 +2444,11 @@ function PanelManager({
         toast.success(`PANEL_ADDED · ${data.added}`, {
           description: "Two panels can now interview the same slot in parallel.",
         });
+      } else if (action === "rename" && data.renamed) {
+        setRenaming(null);
+        toast.success(`PANEL_RENAMED · ${data.renamed.from} → ${data.renamed.to}`, {
+          description: `${data.movedSlots ?? 0} scheduled slot(s) moved with it.`,
+        });
       } else {
         toast.success(`PANEL_REMOVED · ${data.removed}`, {
           description: "Roster updated.",
@@ -2447,6 +2461,15 @@ function PanelManager({
     } finally {
       setBusy(false);
     }
+  };
+
+  const saveRename = (panel: string) => {
+    const next = draft.trim().replace(/\s+/g, " ");
+    if (!next || next === panel) {
+      setRenaming(null); // nothing to do - not an error
+      return;
+    }
+    void mutate("rename", panel, next);
   };
 
   return (
@@ -2468,32 +2491,86 @@ function PanelManager({
         </button>
       </div>
       <div className="flex flex-wrap items-center gap-2 p-4">
-        {panels.map((p) => (
-          <span
-            key={p}
-            className="inline-flex items-center gap-2 border border-fuchsia-400/40 bg-fuchsia-400/5 px-2.5 py-1 font-mono text-[10px] tracking-widest text-foreground"
-          >
-            {p}
-            <span className="text-muted-foreground/70 tabular-nums">
-              {counts.get(p) ?? 0} SLOTS
-            </span>
-            {panels.length > 1 ? (
+        {panels.map((p) =>
+          renaming === p ? (
+            <span
+              key={p}
+              className="inline-flex items-center gap-1.5 border border-cyan-300/60 bg-cyan-300/5 px-2 py-1"
+            >
+              <input
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveRename(p);
+                  if (e.key === "Escape") setRenaming(null);
+                }}
+                maxLength={MAX_PANEL_NAME_LENGTH}
+                autoFocus
+                aria-label={`Rename ${p}`}
+                placeholder={p}
+                className="h-6 w-32 border border-input bg-background/80 px-1.5 font-mono text-[10px] tracking-widest text-foreground focus:border-cyan-300 focus:outline-none"
+              />
               <button
                 type="button"
-                onClick={() => mutate("remove", p)}
-                disabled={busy}
-                title={`delete ${p}`}
-                aria-label={`Delete ${p}`}
-                className="text-muted-foreground/70 transition-colors hover:text-destructive disabled:opacity-40"
+                onClick={() => saveRename(p)}
+                disabled={busy || !draft.trim()}
+                title="save the new name"
+                aria-label={`Save new name for ${p}`}
+                className="text-cyan-300 transition-colors hover:text-foreground disabled:opacity-40"
               >
-                <Trash2 className="h-3 w-3" aria-hidden="true" />
+                <Check className="h-3 w-3" aria-hidden="true" />
               </button>
-            ) : null}
-          </span>
-        ))}
+              <button
+                type="button"
+                onClick={() => setRenaming(null)}
+                disabled={busy}
+                title="cancel rename"
+                aria-label="Cancel rename"
+                className="text-muted-foreground/70 transition-colors hover:text-foreground disabled:opacity-40"
+              >
+                <X className="h-3 w-3" aria-hidden="true" />
+              </button>
+            </span>
+          ) : (
+            <span
+              key={p}
+              className="inline-flex items-center gap-2 border border-fuchsia-400/40 bg-fuchsia-400/5 px-2.5 py-1 font-mono text-[10px] tracking-widest text-foreground"
+            >
+              {p}
+              <span className="text-muted-foreground/70 tabular-nums">
+                {counts.get(p) ?? 0} SLOTS
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setRenaming(p);
+                  setDraft(p);
+                }}
+                disabled={busy}
+                title={`rename ${p}`}
+                aria-label={`Rename ${p}`}
+                className="text-muted-foreground/70 transition-colors hover:text-cyan-300 disabled:opacity-40"
+              >
+                <Pencil className="h-3 w-3" aria-hidden="true" />
+              </button>
+              {panels.length > 1 ? (
+                <button
+                  type="button"
+                  onClick={() => mutate("remove", p)}
+                  disabled={busy}
+                  title={`delete ${p}`}
+                  aria-label={`Delete ${p}`}
+                  className="text-muted-foreground/70 transition-colors hover:text-destructive disabled:opacity-40"
+                >
+                  <Trash2 className="h-3 w-3" aria-hidden="true" />
+                </button>
+              ) : null}
+            </span>
+          )
+        )}
       </div>
       <p className="border-t border-border/60 bg-background/40 px-4 py-1.5 font-mono text-[9px] text-muted-foreground/60">
-        slots clash only within a panel - the same time on different panels runs parallel · a panel with scheduled slots can't be deleted
+        slots clash only within a panel - the same time on different panels runs parallel · a panel with scheduled slots can't be deleted · renaming moves its slots along
       </p>
     </section>
   );
