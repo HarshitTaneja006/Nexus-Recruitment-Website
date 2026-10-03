@@ -9,7 +9,9 @@ import {
   findInterviewConflicts,
   getApplicationById,
   getInterviewPanels,
+  getTechRound1Deadline,
 } from "@/lib/storage";
+import { TECH_ROUND1_BRIEF_URL } from "@/lib/tech-round1";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,9 +40,9 @@ const patchSchema = z.object({
  * (all or selected rows). Only submission receipts auto-send.
  * A SHORTLISTED commit without an interview slot is held back (no mail)
  * until the slot is added - response carries emailQueued for the console.
- * A SHORTLISTED_R1 commit never queues mail: core sends the Round 1
- * brief/deadline mail manually via the EMAIL composer when the brief +
- * deadline are ready, then flushes it from the outbox.
+ * A SHORTLISTED_R1 commit always queues its mail (no slot exists for that
+ * round): the row waits in the outbox and core flushes it when the brief +
+ * deadline are ready.
  */
 export async function PATCH(
   req: NextRequest,
@@ -177,13 +179,12 @@ export async function PATCH(
     // Queue the student-facing email - core flushes the outbox manually
     // (FLUSH_QUEUE or FLUSH_SELECTED). Best-effort: a notification failure
     // must never block the review action.
-    // Held (no mail queued):
-    //  - slotted-shortlist commit without an interview slot (notified once
-    //    the slot is actually added);
-    //  - SHORTLISTED_R1, always (core sends the Round 1 brief/deadline mail
-    //    manually via the EMAIL composer when ready, then flushes).
-    const holdMail =
-      parsed.data.status === "SHORTLISTED_R1" || (slotted && !interviewAt);
+    // Held (no mail queued): a slotted-shortlist commit without an
+    // interview slot - the student is notified once the slot is added.
+    // SHORTLISTED_R1 always queues (no slot exists for that round); the
+    // row waits in the outbox until core flushes it. Commit R1 after the
+    // deadline is set so the queued copy carries the real date.
+    const holdMail = slotted && !interviewAt;
     let emailQueued = false;
     if (!holdMail) {
       try {
@@ -216,8 +217,22 @@ export async function PATCH(
             parts.push("", `Interview panel: ${updated.interviewPanel} - report there for your slot.`);
           }
         }
+        if (parsed.data.status === "SHORTLISTED_R1") {
+          const siteUrl = (
+            process.env.NEXT_PUBLIC_SITE_URL ?? "https://nexus.runs-on.dev"
+          ).replace(/\/$/, "");
+          const deadline = await getTechRound1Deadline();
+          parts.push(
+            "",
+            "ROUND 1 - build round (no interview slot):",
+            `  1. Read the project brief: ${siteUrl}${TECH_ROUND1_BRIEF_URL}`,
+            `  2. Open your Round 1 screen (${siteUrl}/round1) and submit your GitHub repo + report${deadline ? ` before ${new Date(deadline).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", weekday: "long", day: "2-digit", month: "long", hour: "2-digit", minute: "2-digit", hour12: false })} IST` : " (deadline to be announced - watch the WhatsApp group)"} (deploy link optional).`,
+            "  3. You can re-submit until the deadline - the last version counts."
+          );
+        }
         if (
           parsed.data.status === "SHORTLISTED" ||
+          parsed.data.status === "SHORTLISTED_R1" ||
           parsed.data.status === "SHORTLISTED_R2"
         ) {
           const groupLink = getDomainWhatsappGroupLink(updated.department);

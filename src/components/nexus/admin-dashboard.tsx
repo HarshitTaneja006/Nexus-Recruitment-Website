@@ -1657,10 +1657,11 @@ function DetailDialog({
       setSlotConflicts(null);
       if (data.emailQueued === false) {
         toast.success(`STATUS_COMMITTED · ${getStatusMeta(draftStatus).label}`, {
-          description:
-            draftStatus === "SHORTLISTED_R1"
-              ? `${application.fullName} - no mail queued. Send the R1 brief mail manually via EMAIL when ready, then flush.`
-              : `${application.fullName} - mail held until you add the interview slot.`,
+          description: `${application.fullName} - mail held until you add the interview slot.`,
+        });
+      } else if (draftStatus === "SHORTLISTED_R1") {
+        toast.success(`STATUS_COMMITTED · ${getStatusMeta(draftStatus).label}`, {
+          description: `${application.fullName} - R1 mail queued in the outbox. Flush when the brief + deadline are final.`,
         });
       } else {
         toast.success(`STATUS_COMMITTED · ${getStatusMeta(draftStatus).label}`, {
@@ -1940,9 +1941,10 @@ function DetailDialog({
                     </a>
                     ) + the global deadline on their Round 1 screen and
                     submits github / report / deploy links there. Committing
-                    R1 queues no mail - nothing goes out automatically. When
-                    the brief + deadline are ready, tick the R1 files → EMAIL
-                    composer → flush from the outbox.
+                    R1 queues the Round 1 mail (brief + deadline + group
+                    link) to the outbox - nothing sends until you flush.
+                    Set the deadline first so the queued copy carries the
+                    real date.
                   </p>
                   {application.department !== "technical" ? (
                     <p className="mt-1.5 font-mono text-[9px] tracking-widest text-destructive">

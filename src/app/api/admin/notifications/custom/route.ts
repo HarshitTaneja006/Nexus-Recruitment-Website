@@ -24,8 +24,9 @@ const bodySchema = z.object({
  * POST /api/admin/notifications/custom - compose + queue a custom email to
  * the selected applicants from the review console. Template variables are
  * merged per student: {{name}} {{domain}} {{status}} {{year}} {{whatsapp}}
- * plus the global Round 1 helpers {{round1deadline}} {{round1brief}} (for
- * the manually-sent SHORTLISTED_R1 brief mail - R1 commits queue nothing).
+ * plus the global Round 1 helpers {{round1deadline}} {{round1brief}} (handy
+ * for follow-up mail to the R1 cohort - the commit-time R1 mail already
+ * carries both).
  * Rows land in the outbox as type=CUSTOM; FLUSH_QUEUE delivers via SMTP.
  */
 export async function POST(req: Request) {
