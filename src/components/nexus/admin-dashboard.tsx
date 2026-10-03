@@ -1875,19 +1875,38 @@ function DetailDialog({
                 {APPLICATION_STATUSES.map((s) => {
                   const meta = getStatusMeta(s);
                   const active = draftStatus === s;
+                  // department lanes: R1/R2 are technical-only, plain
+                  // SHORTLISTED is non-tech-only. The file's current
+                  // status stays clickable so legacy rows can move off it.
+                  const isTech = application.department === "technical";
+                  const offLane =
+                    (isTech && s === "SHORTLISTED") ||
+                    (!isTech &&
+                      (s === "SHORTLISTED_R1" || s === "SHORTLISTED_R2"));
+                  const disabled = offLane && !active;
                   return (
                     <button
                       key={s}
                       type="button"
                       role="radio"
                       aria-checked={active}
-                      title={meta.adminHint}
+                      aria-disabled={disabled || undefined}
+                      title={
+                        disabled
+                          ? isTech
+                            ? "tech lane - use SHORTLISTED_R1 / SHORTLISTED_R2 for this file"
+                            : "tech-only stage - use SHORTLISTED for this file"
+                          : meta.adminHint
+                      }
+                      disabled={disabled}
                       onClick={() => setDraftStatus(s)}
                       className={cn(
                         "border px-2 py-1 font-mono text-[9px] tracking-widest transition-colors",
                         active
                           ? meta.chipClass
-                          : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                          : disabled
+                            ? "cursor-not-allowed border-border/50 text-muted-foreground/30"
+                            : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
                       )}
                     >
                       {meta.label}
