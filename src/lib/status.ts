@@ -8,9 +8,20 @@
  *                                               ├→ ACCEPTED
  *                                               └→ REJECTED
  *
- * Interview slots (interviewAt/interviewMode) attach to SHORTLISTED -
- * shortlisting doubles as "invited to interview"; INTERVIEWED marks the
- * interview as done and the file as awaiting a final decision.
+ * Tech-domain two-stage shortlist (technical department only):
+ *   SUBMITTED → SHORTLISTED_R1 (project round, deadline, no slot)
+ *             → SHORTLISTED_R2 (interview round, slot like SHORTLISTED)
+ *             → INTERVIEWED → DECISION
+ *
+ * SHORTLISTED stays for non-tech domains (management, design_social_media)
+ * and keeps its interview-slot behaviour. SHORTLISTED_R1 carries no slot -
+ * only a Round 1 deadline + project submission (github/report/deploy).
+ * SHORTLISTED_R2 behaves exactly like SHORTLISTED (slot + mode + panel).
+ *
+ * Interview slots (interviewAt/interviewMode) attach to SHORTLISTED and
+ * SHORTLISTED_R2 - shortlisting doubles as "invited to interview";
+ * INTERVIEWED marks the interview as done and the file as awaiting a
+ * final decision.
  *
  * Legacy aliases (IN_REVIEW / NEEDS_INFO / INTERVIEW / WAITLISTED) exist for
  * DISPLAY ONLY: old audit-trail entries keep rendering truthfully, but they
@@ -20,6 +31,8 @@
 export const APPLICATION_STATUSES = [
   "SUBMITTED",
   "SHORTLISTED",
+  "SHORTLISTED_R1",
+  "SHORTLISTED_R2",
   "INTERVIEWED",
   "ACCEPTED",
   "REJECTED",
@@ -74,7 +87,25 @@ export const STATUS_META: Record<ApplicationStatus, StatusMeta> = {
     barClass: "bg-emerald-400",
     studentCopy:
       "You cleared the first cut. Shortlisted - interview details (if any) appear in the slot card below.",
-    adminHint: "cleared screening - attach the interview slot + mode here",
+    adminHint: "cleared screening - non-tech interview path (attach slot + mode)",
+  },
+  SHORTLISTED_R1: {
+    label: "SHORTLISTED · R1",
+    textClass: "text-cyan-300",
+    chipClass: "border-cyan-300/50 bg-cyan-300/10 text-cyan-300",
+    barClass: "bg-cyan-300",
+    studentCopy:
+      "Shortlisted for Round 1 (technical). Open the Round 1 screen, read the project brief, and submit your GitHub + report links before the deadline - no interview slot for this round.",
+    adminHint: "tech only - Round 1 project (no slot, deadline + brief apply)",
+  },
+  SHORTLISTED_R2: {
+    label: "SHORTLISTED · R2",
+    textClass: "text-teal-300",
+    chipClass: "border-teal-300/50 bg-teal-300/10 text-teal-300",
+    barClass: "bg-teal-300",
+    studentCopy:
+      "Shortlisted for Round 2 (technical). Your Round 1 build cleared - interview details appear in the slot card below.",
+    adminHint: "tech only - Round 2 interview (attach slot + mode like SHORTLISTED)",
   },
   INTERVIEWED: {
     label: "INTERVIEWED",
@@ -172,8 +203,23 @@ export function isTerminalStatus(s: string): boolean {
 export function pipelineStageIndex(status: string): number {
   if (isTerminalStatus(status)) return STATUS_PIPELINE.length - 1;
   if (status === "INTERVIEWED") return 2;
-  if (status === "SHORTLISTED") return 1;
+  if (
+    status === "SHORTLISTED" ||
+    status === "SHORTLISTED_R1" ||
+    status === "SHORTLISTED_R2"
+  )
+    return 1;
   return 0;
+}
+
+/** Tech Round 1 shortlist - project round, no interview slot. */
+export function isRound1Status(status: string): boolean {
+  return status === "SHORTLISTED_R1";
+}
+
+/** Any status that carries an interview slot (classic + tech Round 2). */
+export function isSlottedShortlistStatus(status: string): boolean {
+  return status === "SHORTLISTED" || status === "SHORTLISTED_R2";
 }
 
 export function getStatusMeta(status: string): StatusMeta {
@@ -188,7 +234,7 @@ export function getStatusLabel(status: string): string {
 }
 
 /* ------------------------------------------------------------------ */
-/* Interview scheduling (slots attach to SHORTLISTED)                  */
+/* Interview scheduling (slots attach to SHORTLISTED + SHORTLISTED_R2) */
 /* ------------------------------------------------------------------ */
 
 export const INTERVIEW_MODES = ["GOOGLE_MEET", "IN_PERSON", "PHONE"] as const;

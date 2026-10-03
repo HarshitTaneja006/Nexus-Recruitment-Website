@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
  * GET /api/application/ics - student-gated calendar export for their
  * scheduled interview. Returns an RFC 5545 .ics file (with a 30-minute
  * reminder alarm) so students can drop the slot into any calendar app.
- * 404 when there is no live interview slot on the file (slot attaches to SHORTLISTED).
+ * 404 when there is no live interview slot on the file (slots attach to
+ * SHORTLISTED + SHORTLISTED_R2; SHORTLISTED_R1 never carries a slot).
  */
 
 const INTERVIEW_DURATION_MIN = 30;
@@ -52,7 +53,11 @@ export async function GET() {
 
   try {
     const app = await findApplicationByEmail(email);
-    if (!app || app.status !== "SHORTLISTED" || !app.interviewAt) {
+    if (
+      !app ||
+      (app.status !== "SHORTLISTED" && app.status !== "SHORTLISTED_R2") ||
+      !app.interviewAt
+    ) {
       return NextResponse.json({ error: "NO_SCHEDULED_INTERVIEW" }, { status: 404 });
     }
     const start = new Date(app.interviewAt);

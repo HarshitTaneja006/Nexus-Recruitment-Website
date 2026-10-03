@@ -32,11 +32,19 @@ export async function GET(req: NextRequest) {
       ? orderParam
       : "newest";
 
+  // status accepts a single value or a comma list (agenda pulls
+  // SHORTLISTED + SHORTLISTED_R2 together - both carry interview slots).
+  const statuses = statusParam
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => isApplicationStatus(s));
+
   try {
     const [applications, stats] = await Promise.all([
       listApplications({
         department: getDepartment(department) ? department : undefined,
-        status: isApplicationStatus(statusParam) ? statusParam : undefined,
+        status: statuses.length === 1 ? statuses[0] : undefined,
+        statuses: statuses.length > 1 ? statuses : undefined,
         year,
         q: q || undefined,
         order,

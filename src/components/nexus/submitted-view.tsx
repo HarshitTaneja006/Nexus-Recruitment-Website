@@ -31,6 +31,8 @@ import {
   pipelineStageIndex,
 } from "@/lib/status";
 import type { ApplicationRecord } from "@/lib/storage";
+import { isTechRound1Candidate } from "@/lib/tech-round1";
+import { TechRound1Panel } from "@/components/nexus/tech-round1-panel";
 import { cn } from "@/lib/utils";
 
 /**
@@ -220,6 +222,11 @@ export function SubmittedView({
       {/* live status pipeline */}
       <StatusPipeline status={application.status} live={live} />
 
+      {/* tech Round 1 project screen (no slot - brief + deadline + hand-in) */}
+      {isTechRound1Candidate(application.department, application.status) ? (
+        <Round1Section application={application} />
+      ) : null}
+
       {/* whatsapp community - every applicant joins the group */}
       <section
         className="terminal-panel border-emerald-400/40"
@@ -380,6 +387,28 @@ export function SubmittedView({
       ) : null}
     </div>
   );
+}
+
+/**
+ * Round 1 section on the receipt: fetches the global deadline once and
+ * hands the live application to the project panel. Separate full screen
+ * also exists at /round1 (same component).
+ */
+function Round1Section({ application }: { application: ApplicationRecord }) {
+  const [deadline, setDeadline] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/round1", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { deadline?: string | null } | null) => {
+        if (alive) setDeadline(data?.deadline ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return <TechRound1Panel application={application} deadline={deadline} compact />;
 }
 
 /**

@@ -39,6 +39,12 @@ export interface ApplicationRecord {
   interviewMode: string | null;
   /** interview panel running this slot; null (legacy) = default "Panel 1" */
   interviewPanel: string | null;
+  /** tech Round 1 project submission (status = SHORTLISTED_R1, no slot) */
+  round1GithubUrl: string | null;
+  round1ReportUrl: string | null;
+  /** optional live demo link */
+  round1DeployUrl: string | null;
+  round1SubmittedAt: string | null;
   clarificationQuestion: string | null;
   clarificationAnswer: string | null;
   clarificationAskedAt: string | null;
@@ -519,6 +525,8 @@ export async function getDriveStats(): Promise<DriveStats> {
 export interface ListOptions {
   department?: string;
   status?: string;
+  /** multi-status filter (agenda fetches SHORTLISTED + SHORTLISTED_R2) */
+  statuses?: string[];
   /** 1..5 - year of study */
   year?: number;
   q?: string;
@@ -536,9 +544,13 @@ export interface ListOptions {
  * Two panels may run the same clock time in parallel; only clashes
  * within the same panel block the commit (unless forced).
  *
+ * Slotted statuses are SHORTLISTED (non-tech path) and SHORTLISTED_R2
+ * (tech Round 2). SHORTLISTED_R1 never carries a slot - only a deadline.
+ *
  * Rows with a legacy null panel count as the default panel, so old
  * slots keep guarding "Panel 1" after the feature ships.
  */
+export const SLOTTED_STATUSES = ["SHORTLISTED", "SHORTLISTED_R2"] as const;
 export async function findInterviewConflicts(params: {
   excludeId: string;
   aroundIso: string;
@@ -562,7 +574,7 @@ export async function findInterviewConflicts(params: {
       let query = supabase
         .from(SUPABASE_TABLES.applications)
         .select("id, full_name, email, department, interview_at, interview_mode, interview_panel")
-        .eq("status", "SHORTLISTED")
+        .in("status", [...SLOTTED_STATUSES])
         .neq("id", params.excludeId)
         .gte("interview_at", from.toISOString())
         .lte("interview_at", to.toISOString());
@@ -586,7 +598,7 @@ export async function findInterviewConflicts(params: {
 
   const rows = await db.application.findMany({
     where: {
-      status: "SHORTLISTED",
+      status: { in: [...SLOTTED_STATUSES] },
       id: { not: params.excludeId },
       interviewAt: { gte: from, lte: to },
       ...(matchLegacyNull
@@ -623,7 +635,8 @@ export async function listApplications(opts: ListOptions = {}): Promise<Applicat
         .select("*")
         .limit(500);
       if (opts.department) query = query.eq("department", opts.department);
-      if (opts.status) query = query.eq("status", opts.status);
+      if (opts.statuses?.length) query = query.in("status", opts.statuses);
+      else if (opts.status) query = query.eq("status", opts.status);
       if (opts.year) query = query.eq("year_of_study", opts.year);
       if (opts.q) {
         const like = `%${opts.q}%`;
@@ -645,7 +658,8 @@ export async function listApplications(opts: ListOptions = {}): Promise<Applicat
 
   const where: Record<string, unknown> = {};
   if (opts.department) where.department = opts.department;
-  if (opts.status) where.status = opts.status;
+  if (opts.statuses?.length) where.status = { in: opts.statuses };
+  else if (opts.status) where.status = opts.status;
   if (opts.year) where.yearOfStudy = opts.year;
   if (opts.q) {
     where.OR = [
@@ -698,6 +712,10 @@ export async function exportApplicationsCsv(opts: ListOptions = {}): Promise<str
     "github",
     "linkedin",
     "portfolio",
+    "round1_github_url",
+    "round1_report_url",
+    "round1_deploy_url",
+    "round1_submitted_at",
     ...questionIds,
   ];
 
@@ -721,6 +739,10 @@ export async function exportApplicationsCsv(opts: ListOptions = {}): Promise<str
         r.links?.github ?? "",
         r.links?.linkedin ?? "",
         r.links?.portfolio ?? "",
+        r.round1GithubUrl ?? "",
+        r.round1ReportUrl ?? "",
+        r.round1DeployUrl ?? "",
+        r.round1SubmittedAt ?? "",
         ...questionIds.map((id) => r.answers?.[id] ?? ""),
       ]
         .map(escape)
@@ -1077,7 +1099,7 @@ export async function markAllNotificationsSent(): Promise<number> {
 /* Settings (key/value runtime flags)                                  */
 /* ------------------------------------------------------------------ */
 
-export type SettingKey = "stats_public" | "interview_panels";
+export type SettingKey = "stats_public" | "interview_panels" | "tech_round1_deadline";
 
 export async function getSetting(key: SettingKey): Promise<string | null> {
   try {
@@ -1166,7 +1188,7 @@ export async function countPanelSlotReferences(panel: string): Promise<number> {
       let query = supabase
         .from(SUPABASE_TABLES.applications)
         .select("id", { count: "exact", head: true })
-        .eq("status", "SHORTLISTED")
+        .in("status", [...SLOTTED_STATUSES])
         .not("interview_at", "is", null);
       query =
         name === DEFAULT_INTERVIEW_PANEL
@@ -1179,7 +1201,7 @@ export async function countPanelSlotReferences(panel: string): Promise<number> {
   }
   return db.application.count({
     where: {
-      status: "SHORTLISTED",
+      status: { in: [...SLOTTED_STATUSES] },
       interviewAt: { not: null },
       ...(name === DEFAULT_INTERVIEW_PANEL
         ? { OR: [{ interviewPanel: name }, { interviewPanel: null }] }
@@ -1194,6 +1216,129 @@ export async function removeInterviewPanel(panel: string): Promise<string[]> {
   const name = normalizePanelName(panel);
   const updated = panels.filter((p) => p !== name);
   return setInterviewPanels(updated.length > 0 ? updated : [DEFAULT_INTERVIEW_PANEL]);
+}
+
+/* ------------------------------------------------------------------ */
+/* Tech Round 1 (SHORTLISTED_R1 project round - no interview slot)     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Global Round 1 deadline (ISO string) for tech SHORTLISTED_R1 students.
+ * Stored as a Setting row ("tech_round1_deadline") so core can move it
+ * from the review console without a deploy or SQL. Null = not set yet.
+ */
+export async function getTechRound1Deadline(): Promise<string | null> {
+  try {
+    const raw = await getSetting("tech_round1_deadline");
+    if (!raw) return null;
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  } catch {
+    return null;
+  }
+}
+
+/** Replace the global Round 1 deadline. Null clears it. */
+export async function setTechRound1Deadline(iso: string | null): Promise<string | null> {
+  if (iso === null) {
+    // clear by writing an empty value (Setting has no delete helper)
+    await setSetting("tech_round1_deadline", "");
+    return null;
+  }
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) throw new Error("BAD_DEADLINE");
+  const normalized = d.toISOString();
+  await setSetting("tech_round1_deadline", normalized);
+  return normalized;
+}
+
+/** True while Round 1 submissions are still accepted. Null deadline = open. */
+export async function isTechRound1Open(now = new Date()): Promise<boolean> {
+  const deadline = await getTechRound1Deadline();
+  if (!deadline) return true;
+  return now.getTime() <= new Date(deadline).getTime();
+}
+
+export interface Round1Submission {
+  githubUrl: string;
+  reportUrl: string;
+  deployUrl: string | null;
+}
+
+/**
+ * Student Round 1 hand-in: github + report required, deploy optional.
+ * Guarded upstream (route): only status=SHORTLISTED_R1 + technical +
+ * before deadline reach here. Re-submits overwrite (students can fix
+ * links until the deadline). Appends a "student" audit event so the
+ * history shows the hand-in.
+ */
+export async function submitTechRound1(params: {
+  id: string;
+  githubUrl: string;
+  reportUrl: string;
+  deployUrl?: string | null;
+}): Promise<ApplicationRecord | null> {
+  const nowISO = new Date().toISOString();
+  const deploy = params.deployUrl?.trim() ? params.deployUrl.trim() : null;
+
+  if (isSupabaseConfigured) {
+    const supabase = getSupabaseAdmin();
+    if (supabase) {
+      const { data: current } = await supabase
+        .from(SUPABASE_TABLES.applications)
+        .select("status_history")
+        .eq("id", params.id)
+        .maybeSingle();
+      const history: StatusEvent[] = Array.isArray(current?.status_history)
+        ? (current?.status_history as StatusEvent[])
+        : [];
+      history.push({
+        status: "SHORTLISTED_R1",
+        note: "Round 1 project submitted",
+        by: "student",
+        at: nowISO,
+      });
+      const { data, error } = await supabase
+        .from(SUPABASE_TABLES.applications)
+        .update({
+          round1_github_url: params.githubUrl.trim(),
+          round1_report_url: params.reportUrl.trim(),
+          round1_deploy_url: deploy,
+          round1_submitted_at: nowISO,
+          status_history: history,
+          updated_at: nowISO,
+        })
+        .eq("id", params.id)
+        .select("*")
+        .maybeSingle();
+      if (error) throw new Error(`Supabase round1 update failed: ${error.message}`);
+      return data ? mapApplicationRow(snakeToCamelRow(data)) : null;
+    }
+  }
+
+  const existing = await db.application.findUnique({
+    where: { id: params.id },
+    select: { statusHistory: true },
+  });
+  if (!existing) return null;
+  const history: StatusEvent[] = parseStatusHistory(existing.statusHistory);
+  history.push({
+    status: "SHORTLISTED_R1",
+    note: "Round 1 project submitted",
+    by: "student",
+    at: nowISO,
+  });
+  const saved = await db.application.update({
+    where: { id: params.id },
+    data: {
+      round1GithubUrl: params.githubUrl.trim(),
+      round1ReportUrl: params.reportUrl.trim(),
+      round1DeployUrl: deploy,
+      round1SubmittedAt: new Date(),
+      statusHistory: history as unknown as Prisma.InputJsonValue,
+    },
+  });
+  return mapApplicationRow(saved);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1328,6 +1473,24 @@ function mapApplicationRow(row: Record<string, unknown>): ApplicationRecord {
       row.interview_panel === undefined
         ? null
         : String(row.interviewPanel ?? row.interview_panel ?? ""),
+    round1GithubUrl:
+      row.round1GithubUrl ?? row.round1_github_url
+        ? String(row.round1GithubUrl ?? row.round1_github_url)
+        : null,
+    round1ReportUrl:
+      row.round1ReportUrl ?? row.round1_report_url
+        ? String(row.round1ReportUrl ?? row.round1_report_url)
+        : null,
+    round1DeployUrl:
+      row.round1DeployUrl ?? row.round1_deploy_url
+        ? String(row.round1DeployUrl ?? row.round1_deploy_url)
+        : null,
+    round1SubmittedAt: (() => {
+      const raw = row.round1SubmittedAt ?? row.round1_submitted_at;
+      if (!raw) return null;
+      const d = raw instanceof Date ? raw : new Date(String(raw));
+      return Number.isNaN(d.getTime()) ? null : d.toISOString();
+    })(),
     clarificationQuestion:
       row.clarificationQuestion === null || row.clarificationQuestion === undefined
         ? null
