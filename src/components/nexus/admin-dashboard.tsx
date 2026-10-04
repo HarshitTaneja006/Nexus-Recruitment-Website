@@ -225,6 +225,23 @@ export function AdminDashboard() {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   }, []);
+  /** shift-click anchor for range ticks (Gmail-style, within this page) */
+  const lastTickIndex = useRef<number | null>(null);
+  const tickRow = (index: number, id: string, range: boolean) => {
+    if (
+      range &&
+      lastTickIndex.current != null &&
+      lastTickIndex.current !== index
+    ) {
+      const from = Math.min(lastTickIndex.current, index);
+      const to = Math.max(lastTickIndex.current, index);
+      const rangeIds = pageRows.slice(from, to + 1).map((a) => a.id);
+      setSelectedIds((prev) => [...new Set([...prev, ...rangeIds])]);
+    } else {
+      toggleSelected(id);
+    }
+    lastTickIndex.current = index;
+  };
   const allPageSelected = pageRows.length > 0 && pageRows.every((a) => selectedIds.includes(a.id));
   const toggleAllPage = () =>
     setSelectedIds(allPageSelected ? [] : pageRows.map((a) => a.id));
@@ -232,6 +249,7 @@ export function AdminDashboard() {
   // keep the selection honest when the filter/page changes
   useEffect(() => {
     setSelectedIds((prev) => prev.filter((id) => apps.some((a) => a.id === id)));
+    lastTickIndex.current = null;
   }, [department, status, year, debouncedQuery, order, safePage]);
 
   /** Optimistically patch one application across every copy we hold. */
@@ -653,7 +671,8 @@ export function AdminDashboard() {
                             role="checkbox"
                             aria-checked={checked}
                             aria-label={`Select ${app.fullName} for custom email`}
-                            onClick={() => toggleSelected(app.id)}
+                            title="tick · shift-click ticks the whole range"
+                            onClick={(e) => tickRow(i, app.id, e.shiftKey)}
                             className="text-muted-foreground transition-colors hover:text-primary"
                           >
                             {checked ? (
@@ -709,7 +728,7 @@ export function AdminDashboard() {
 
             {/* mobile cards */}
             <ul className="divide-y divide-border md:hidden">
-              {pageRows.map((app) => {
+              {pageRows.map((app, i) => {
                 const dept = getDepartment(app.department);
                 const checked = selectedIds.includes(app.id);
                 return (
@@ -720,7 +739,8 @@ export function AdminDashboard() {
                         role="checkbox"
                         aria-checked={checked}
                         aria-label={`Select ${app.fullName} for custom email`}
-                        onClick={() => toggleSelected(app.id)}
+                        title="tick · shift-click ticks the whole range"
+                        onClick={(e) => tickRow(i, app.id, e.shiftKey)}
                         className="flex w-10 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-primary"
                       >
                         {checked ? (
