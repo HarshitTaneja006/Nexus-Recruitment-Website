@@ -228,7 +228,7 @@ export async function PATCH(
             "",
             "ROUND 1 - build round (no interview slot):",
             `  1. Read the project brief: ${siteUrl}${TECH_ROUND1_BRIEF_URL}`,
-            `  2. Open your Round 1 screen (${siteUrl}/round1), pick your problem statement (01-04), and submit your GitHub repo + report${deadline ? ` before ${new Date(deadline).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", weekday: "long", day: "2-digit", month: "long", hour: "2-digit", minute: "2-digit", hour12: false })} IST` : " (deadline to be announced - watch the WhatsApp group)"} (deploy link optional).`,
+            `  2. Open your application page (${siteUrl}/apply), pick your problem statement (01-04), and submit your GitHub repo + report${deadline ? ` before ${new Date(deadline).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", weekday: "long", day: "2-digit", month: "long", hour: "2-digit", minute: "2-digit", hour12: false })} IST` : " (deadline to be announced - watch the WhatsApp group)"} (deploy link optional).`,
             "  3. You can re-submit until the deadline - the last version counts."
           );
         }

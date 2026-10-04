@@ -2778,7 +2778,7 @@ function TechRound1Manager() {
                 })}{" "}
                 IST
                 <br />
-                R1 students hand in on /round1 - no slots on this round.
+                R1 students hand in on /apply - no slots on this round.
               </>
             ) : (
               <>
