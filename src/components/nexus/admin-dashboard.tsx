@@ -305,11 +305,15 @@ export function AdminDashboard() {
           <button
             type="button"
             onClick={() => setBulkOpen(true)}
-            title="Move every listed row to one status at once (e.g. all technical → R1)"
+            title={
+              selectedIds.length > 0
+                ? `Bulk-move the ${selectedIds.length} ticked row(s) - or switch to all listed inside`
+                : "Move every listed row to one status at once (e.g. all technical → R1)"
+            }
             className="inline-flex h-9 items-center gap-2 border border-cyan-300/60 bg-cyan-300/10 px-3 font-mono text-[10px] tracking-widest text-cyan-300 transition-colors hover:bg-cyan-300 hover:text-[#05080d]"
           >
             <ChevronsRight className="h-3.5 w-3.5" aria-hidden="true" />
-            BULK
+            BULK{selectedIds.length > 0 ? ` (${selectedIds.length})` : ""}
           </button>
           <button
             type="button"
@@ -830,10 +834,17 @@ export function AdminDashboard() {
       <BulkDialog
         open={bulkOpen}
         apps={apps}
+        selectedIds={selectedIds}
         department={department}
         status={status}
         onClose={() => setBulkOpen(false)}
-        onDone={() => {
+        onDone={(movedIds) => {
+          // drop committed rows from the tick set so the next batch
+          // (e.g. the other 10) starts from a clean selection
+          if (movedIds.length > 0) {
+            const moved = new Set(movedIds);
+            setSelectedIds((prev) => prev.filter((id) => !moved.has(id)));
+          }
           setBulkOpen(false);
           fetchApps();
         }}
@@ -3519,12 +3530,16 @@ function StatsAccessToggle() {
 }
 
 /* ------------------------------------------------------------------ */
-/* BULK STATUS - move every listed row to one status in one request   */
+/* BULK STATUS + SLOT ALLOTMENT - move rows to one status, optionally  */
+/* handing every shortlisted file an interview slot in the same pass   */
 /* ------------------------------------------------------------------ */
+
+type BulkSlotMode = "NONE" | "SAME" | "SEQUENTIAL";
 
 function BulkDialog({
   open,
   apps,
+  selectedIds,
   department,
   status,
   onClose,
@@ -3532,10 +3547,11 @@ function BulkDialog({
 }: {
   open: boolean;
   apps: ApplicationRecord[];
+  selectedIds: string[];
   department: string;
   status: string;
   onClose: () => void;
-  onDone: () => void;
+  onDone: (movedIds: string[]) => void;
 }) {
   const isTechLane = department === "technical";
   const targets = useMemo(
@@ -3550,26 +3566,151 @@ function BulkDialog({
   const [target, setTarget] = useState<string>(isTechLane ? "SHORTLISTED_R1" : "SHORTLISTED");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sharedNote, setSharedNote] = useState("");
 
-  // reset the target every time the dialog opens (lane-aware default)
+  // slot allotment (slotted shortlists only)
+  const [slotMode, setSlotMode] = useState<BulkSlotMode>("NONE");
+  const [slotDate, setSlotDate] = useState("");
+  const [slotTime, setSlotTime] = useState("");
+  const [slotInterviewMode, setSlotInterviewMode] = useState<string>("GOOGLE_MEET");
+  const [slotPanel, setSlotPanel] = useState<string>(DEFAULT_INTERVIEW_PANEL);
+  const [panels, setPanels] = useState<string[]>([DEFAULT_INTERVIEW_PANEL]);
+  const [slotPanels, setSlotPanels] = useState<string[]>([]);
+  const [intervalMinutes, setIntervalMinutes] = useState(15);
+  const [skipSlotted, setSkipSlotted] = useState(true);
+  const [force, setForce] = useState(false);
+
+  // which rows does this run hit - ticked rows win when present so
+  // split batches (10 on date A, 10 on date B) are one dialog each
+  const [scope, setScope] = useState<"SELECTED" | "LISTED">("LISTED");
+
+  const slottedTarget = isSlottedShortlistStatus(target);
+
+  // reset every open: lane-aware target, scope follows the tick set
   useEffect(() => {
     if (open) {
       setTarget(isTechLane ? "SHORTLISTED_R1" : "SHORTLISTED");
+      setScope(selectedIds.length > 0 ? "SELECTED" : "LISTED");
       setError(null);
+      setSharedNote("");
+      setSlotMode("NONE");
+      setSlotDate("");
+      setSlotTime("");
+      setSlotInterviewMode("GOOGLE_MEET");
+      setSlotPanels([]);
+      setIntervalMinutes(15);
+      setSkipSlotted(true);
+      setForce(false);
     }
   }, [open, isTechLane]);
 
-  const movable = useMemo(() => apps.filter((a) => a.status !== target), [apps, target]);
+  // fresh panel roster every open so the picker matches the drive
+  useEffect(() => {
+    if (!open) return;
+    fetch("/api/admin/panels", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { panels?: string[] } | null) => {
+        const roster = Array.isArray(data?.panels) ? data.panels : [];
+        if (roster.length > 0) {
+          setPanels(roster);
+          setSlotPanel((prev) => (roster.includes(prev) ? prev : roster[0]));
+        }
+      })
+      .catch(() => {});
+  }, [open]);
+
+  // slots make no sense off the slotted path - drop back to status-only
+  useEffect(() => {
+    if (!slottedTarget) setSlotMode("NONE");
+  }, [slottedTarget]);
+
+  const tickedApps = useMemo(
+    () => {
+      const ticked = new Set(selectedIds);
+      return apps.filter((a) => ticked.has(a.id));
+    },
+    [apps, selectedIds]
+  );
+  const scopedApps = scope === "SELECTED" ? tickedApps : apps;
+
+  // tick set emptied mid-dialog (filter/page change) - fall back to listed
+  useEffect(() => {
+    if (tickedApps.length === 0) setScope("LISTED");
+  }, [tickedApps.length]);
+
+  const movable = useMemo(() => {
+    if (slotMode === "NONE") return scopedApps.filter((a) => a.status !== target);
+    // slot allotment doubles as a slot-only top-up: same-status files stay
+    // eligible unless they are being deliberately skipped.
+    return scopedApps.filter((a) => {
+      if (skipSlotted && a.interviewAt) return false;
+      return true;
+    });
+  }, [scopedApps, target, slotMode, skipSlotted]);
+
+  const slotReady =
+    slotMode === "NONE" || (slotDate.trim() !== "" && slotTime.trim() !== "");
+  const toggleSlotPanel = (p: string) =>
+    setSlotPanels((prev) =>
+      prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]
+    );
+
+  // preview: first three allotments in commit order
+  const previewSlots = useMemo(() => {
+    if (slotMode === "NONE" || !slotDate || !slotTime) return [];
+    const start = new Date(`${slotDate}T${slotTime}:00+05:30`);
+    if (Number.isNaN(start.getTime())) return [];
+    const activePanels =
+      slotMode === "SEQUENTIAL" && slotPanels.length > 0
+        ? slotPanels
+        : [slotPanel];
+    return movable.slice(0, 3).map((a, i) => {
+      const at =
+        slotMode === "SAME"
+          ? start
+          : new Date(start.getTime() + i * intervalMinutes * 60_000);
+      const panel =
+        slotMode === "SEQUENTIAL" && slotPanels.length > 0
+          ? activePanels[i % activePanels.length]
+          : slotPanel;
+      return { id: a.id, name: a.fullName, at, panel };
+    });
+  }, [slotMode, slotDate, slotTime, slotPanels, slotPanel, movable, intervalMinutes]);
 
   const run = async () => {
     if (busy || movable.length === 0) return;
+    if (!slotReady) {
+      setError("Pick a slot date + start time (IST) for the allotment.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
+      const payload: Record<string, unknown> = {
+        status: target,
+        ids: movable.map((a) => a.id),
+        ...(sharedNote.trim() ? { note: sharedNote.trim() } : {}),
+        ...(skipSlotted ? { skipSlotted: true } : {}),
+        ...(force ? { force: true } : {}),
+      };
+      if (slottedTarget && slotMode !== "NONE") {
+        const iso = istPartsToIso(slotDate, slotTime);
+        if (!iso) throw new Error("BAD_SLOT");
+        payload.slotMode = slotMode;
+        payload.interviewMode = slotInterviewMode;
+        payload.interviewPanel = slotPanel;
+        if (slotMode === "SAME") {
+          payload.interviewAt = iso;
+        } else {
+          payload.slotStartAt = iso;
+          payload.slotIntervalMinutes = intervalMinutes;
+          if (slotPanels.length > 0) payload.slotPanels = slotPanels;
+        }
+      }
       const res = await fetch("/api/admin/applications/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: target, ids: movable.map((a) => a.id) }),
+        body: JSON.stringify(payload),
       });
       const data = (await res.json().catch(() => null)) as {
         error?: string;
@@ -3579,16 +3720,46 @@ function BulkDialog({
         held?: number;
         skippedAlreadyThere?: number;
         skippedOffLane?: number;
+        skippedSlotted?: number;
+        skippedConflict?: number;
+        conflicts?: Array<{ id: string; fullName: string }>;
         truncated?: number;
         failed?: number;
       } | null;
-      if (!res.ok) throw new Error(data?.error ?? String(res.status));
+      if (!res.ok) {
+        if (data?.error === "UNKNOWN_PANEL") {
+          throw new Error(
+            "That panel no longer exists - close and reopen the dialog to refresh the roster."
+          );
+        }
+        throw new Error(data?.message ?? data?.error ?? String(res.status));
+      }
+      const bits = [
+        `${data?.emailed ?? 0} mail(s) queued - flush the outbox to send.`,
+        (data?.held ?? 0) > 0 ? `${data?.held} held (no slot yet).` : "",
+        (data?.skippedSlotted ?? 0) > 0
+          ? `${data?.skippedSlotted} kept (already slotted).`
+          : "",
+        (data?.skippedConflict ?? 0) > 0
+          ? `${data?.skippedConflict} skipped (slot clash - retry with --force).`
+          : "",
+        (data?.skippedOffLane ?? 0) > 0
+          ? `${data?.skippedOffLane} skipped (wrong lane).`
+          : "",
+        (data?.failed ?? 0) > 0 ? `${data?.failed} failed.` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
       toast.success(`BULK_COMMITTED · ${getStatusMeta(target).label} × ${data?.updated ?? 0}`, {
-        description: `${data?.emailed ?? 0} mail(s) queued - flush the outbox to send.${(data?.held ?? 0) > 0 ? ` ${data?.held} held (no slot yet).` : ""}${(data?.skippedOffLane ?? 0) > 0 ? ` ${data?.skippedOffLane} skipped (wrong lane).` : ""}${(data?.failed ?? 0) > 0 ? ` ${data?.failed} failed.` : ""}`,
+        description: bits,
       });
-      onDone();
-    } catch {
-      setError("Bulk move failed - try a narrower filter set.");
+      onDone(movable.map((a) => a.id));
+    } catch (e) {
+      setError(
+        e instanceof Error && e.message && e.message !== "BAD_SLOT"
+          ? e.message
+          : "Bulk move failed - try a narrower filter set."
+      );
     } finally {
       setBusy(false);
     }
@@ -3596,10 +3767,10 @@ function BulkDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="w-full sm:max-w-lg border-border bg-popover font-mono">
+      <DialogContent className="max-h-[85vh] w-full overflow-y-auto border-border bg-popover font-mono sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="text-base tracking-wider">
-            <span className="text-primary">$ bulk</span> --move --status
+            <span className="text-primary">$ bulk</span> --move --status [--slot]
           </DialogTitle>
           <DialogDescription asChild>
             <div className="space-y-3 text-left">
@@ -3607,21 +3778,60 @@ function BulkDialog({
                 Moves every listed row below to one status in a single request.
                 Each moved file gets its history entry and its status mail
                 queued - flush the outbox to send. R1/R2 skip non-technical
-                rows automatically.
+                rows automatically. On SHORTLISTED / SHORTLISTED_R2 you can
+                allot interview slots in the same pass.
               </p>
               <div className="border border-border bg-secondary/30 px-3 py-2 font-mono text-[11px]">
-                <span className="text-muted-foreground">scope:</span>{" "}
-                <span className="text-foreground">
-                  {department ? `d ${department}/` : "all domains"}
-                  {status ? ` · ${getStatusMeta(status).label}` : " · any status"}
-                </span>{" "}
-                → <span className="text-cyan-300">{apps.length} listed</span>
-                {apps.length !== movable.length ? (
-                  <span className="text-muted-foreground/70">
-                    {" "}
-                    · {movable.length} will move ({apps.length - movable.length} already there)
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-muted-foreground">scope:</span>{" "}
+                  <span className="text-foreground">
+                    {department ? `d ${department}/` : "all domains"}
+                    {status ? ` · ${getStatusMeta(status).label}` : " · any status"}
                   </span>
-                ) : null}
+                  {tickedApps.length > 0 ? (
+                    <span className="flex gap-1" role="radiogroup" aria-label="Bulk scope">
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={scope === "SELECTED"}
+                        onClick={() => setScope("SELECTED")}
+                        className={cn(
+                          "border px-2 py-0.5 font-mono text-[9px] tracking-widest transition-colors",
+                          scope === "SELECTED"
+                            ? "border-cyan-300 bg-cyan-300/15 text-cyan-300"
+                            : "border-border text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        ✓ TICKED {tickedApps.length}
+                      </button>
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={scope === "LISTED"}
+                        onClick={() => setScope("LISTED")}
+                        className={cn(
+                          "border px-2 py-0.5 font-mono text-[9px] tracking-widest transition-colors",
+                          scope === "LISTED"
+                            ? "border-cyan-300 bg-cyan-300/15 text-cyan-300"
+                            : "border-border text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        ALL {apps.length}
+                      </button>
+                    </span>
+                  ) : (
+                    <span className="text-cyan-300">→ {apps.length} listed</span>
+                  )}
+                </div>
+                {scopedApps.length !== movable.length ? (
+                  <div className="mt-1 text-muted-foreground/70">
+                    {movable.length} will move ({scopedApps.length - movable.length} skipped)
+                  </div>
+                ) : (
+                  <div className="mt-1 text-cyan-300/80">
+                    → {movable.length} will move
+                  </div>
+                )}
               </div>
               <label className="flex flex-col gap-1.5">
                 <span className="font-mono text-[9px] tracking-[0.25em] text-muted-foreground">
@@ -3652,6 +3862,253 @@ function BulkDialog({
                   })}
                 </div>
               </label>
+
+              <label className="flex flex-col gap-1.5">
+                <span className="font-mono text-[9px] tracking-[0.25em] text-muted-foreground">
+                  SHARED_NOTE (OPTIONAL - MAILED WITH EVERY ROW)
+                </span>
+                <input
+                  type="text"
+                  value={sharedNote}
+                  maxLength={1000}
+                  onChange={(e) => setSharedNote(e.target.value)}
+                  placeholder="e.g. Report to Seminar Hall 2 with your ID card"
+                  className="h-9 border border-border bg-secondary/30 px-3 font-mono text-[11px] text-foreground placeholder:text-muted-foreground/50 focus:border-primary/60 focus:outline-none"
+                />
+              </label>
+
+              {slottedTarget ? (
+                <div className="space-y-3 border border-border bg-secondary/20 px-3 py-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[9px] tracking-[0.25em] text-muted-foreground">
+                      SLOT_ALLOTMENT
+                    </span>
+                    <div className="flex gap-1" role="radiogroup" aria-label="Slot allotment mode">
+                      {(
+                        [
+                          ["NONE", "STATUS ONLY"],
+                          ["SAME", "SAME SLOT"],
+                          ["SEQUENTIAL", "STAGGERED"],
+                        ] as [BulkSlotMode, string][]
+                      ).map(([m, label]) => (
+                        <button
+                          key={m}
+                          type="button"
+                          role="radio"
+                          aria-checked={slotMode === m}
+                          onClick={() => setSlotMode(m)}
+                          className={cn(
+                            "border px-2 py-1 font-mono text-[9px] tracking-widest transition-colors",
+                            slotMode === m
+                              ? "border-cyan-300 bg-cyan-300/15 text-cyan-300"
+                              : "border-border text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {slotMode !== "NONE" ? (
+                    <>
+                      <p className="font-mono text-[10px] leading-relaxed text-muted-foreground">
+                        {slotMode === "SAME"
+                          ? "One shared slot for all - group interviews / common briefing block."
+                          : "Back-to-back 1:1s from the start time - each file takes the next slot."}
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="flex flex-col gap-1">
+                          <span className="font-mono text-[9px] tracking-[0.2em] text-muted-foreground">
+                            {slotMode === "SAME" ? "DATE (IST)" : "START DATE (IST)"}
+                          </span>
+                          <input
+                            type="date"
+                            value={slotDate}
+                            onChange={(e) => setSlotDate(e.target.value)}
+                            className="h-9 border border-border bg-secondary/30 px-2 font-mono text-[11px] text-foreground focus:border-primary/60 focus:outline-none"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1">
+                          <span className="font-mono text-[9px] tracking-[0.2em] text-muted-foreground">
+                            {slotMode === "SAME" ? "TIME (IST)" : "START TIME (IST)"}
+                          </span>
+                          <input
+                            type="time"
+                            value={slotTime}
+                            onChange={(e) => setSlotTime(e.target.value)}
+                            className="h-9 border border-border bg-secondary/30 px-2 font-mono text-[11px] text-foreground focus:border-primary/60 focus:outline-none"
+                          />
+                        </label>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <span className="font-mono text-[9px] tracking-[0.2em] text-muted-foreground">
+                          MODE
+                        </span>
+                        <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Interview mode">
+                          {INTERVIEW_MODES.map((m) => (
+                            <button
+                              key={m}
+                              type="button"
+                              role="radio"
+                              aria-checked={slotInterviewMode === m}
+                              title={INTERVIEW_MODE_META[m].hint}
+                              onClick={() => setSlotInterviewMode(m)}
+                              className={cn(
+                                "border px-2 py-1 font-mono text-[9px] tracking-widest transition-colors",
+                                slotInterviewMode === m
+                                  ? "border-cyan-300 bg-cyan-300/15 text-cyan-300"
+                                  : "border-border text-muted-foreground hover:text-foreground"
+                              )}
+                            >
+                              {INTERVIEW_MODE_META[m].label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <span className="font-mono text-[9px] tracking-[0.2em] text-muted-foreground">
+                          PANEL
+                        </span>
+                        <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Interview panel">
+                          {panels.map((p) => (
+                            <button
+                              key={p}
+                              type="button"
+                              role="radio"
+                              aria-checked={slotPanel === p}
+                              onClick={() => {
+                                setSlotPanel(p);
+                                // keep the round-robin rotation honest when
+                                // the roster is edited mid-dialog
+                                setSlotPanels((prev) => prev.filter((x) => panels.includes(x)));
+                              }}
+                              className={cn(
+                                "border px-2 py-1 font-mono text-[9px] tracking-widest transition-colors",
+                                slotPanel === p
+                                  ? "border-cyan-300 bg-cyan-300/15 text-cyan-300"
+                                  : "border-border text-muted-foreground hover:text-foreground"
+                              )}
+                            >
+                              {p}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {slotMode === "SEQUENTIAL" ? (
+                        <>
+                          <label className="flex flex-col gap-1">
+                            <span className="font-mono text-[9px] tracking-[0.2em] text-muted-foreground">
+                              GAP_BETWEEN_SLOTS (MIN) - {intervalMinutes}
+                            </span>
+                            <input
+                              type="range"
+                              min={5}
+                              max={120}
+                              step={5}
+                              value={intervalMinutes}
+                              onChange={(e) => setIntervalMinutes(Number(e.target.value))}
+                              className="w-full accent-cyan-300"
+                            />
+                          </label>
+                          {panels.length > 1 ? (
+                            <div className="flex flex-col gap-1.5">
+                              <span className="font-mono text-[9px] tracking-[0.2em] text-muted-foreground">
+                                ROTATE_ACROSS_PANELS (OPTIONAL - ROUND-ROBIN)
+                              </span>
+                              <div className="flex flex-wrap gap-1">
+                                {panels.map((p) => {
+                                  const on = slotPanels.includes(p);
+                                  return (
+                                    <button
+                                      key={p}
+                                      type="button"
+                                      aria-pressed={on}
+                                      title={on ? "included in the rotation" : "tap to include"}
+                                      onClick={() => toggleSlotPanel(p)}
+                                      className={cn(
+                                        "border px-2 py-1 font-mono text-[9px] tracking-widest transition-colors",
+                                        on
+                                          ? "border-cyan-300 bg-cyan-300/15 text-cyan-300"
+                                          : "border-border text-muted-foreground hover:text-foreground"
+                                      )}
+                                    >
+                                      {on ? `✓ ${p}` : p}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              <p className="font-mono text-[10px] text-muted-foreground/70">
+                                {slotPanels.length === 0
+                                  ? "unticked = everyone on the panel above"
+                                  : `rotation: ${slotPanels.join(" → ")} → repeat`}
+                              </p>
+                            </div>
+                          ) : null}
+                        </>
+                      ) : null}
+
+                      <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                        <label className="flex cursor-pointer items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
+                          <input
+                            type="checkbox"
+                            checked={skipSlotted}
+                            onChange={(e) => setSkipSlotted(e.target.checked)}
+                            className="h-3.5 w-3.5 accent-cyan-300"
+                          />
+                          KEEP_EXISTING_SLOTS
+                        </label>
+                        <label className="flex cursor-pointer items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
+                          <input
+                            type="checkbox"
+                            checked={force}
+                            onChange={(e) => setForce(e.target.checked)}
+                            className="h-3.5 w-3.5 accent-amber-400"
+                          />
+                          <span title="Skip the ±45min per-panel overlap guard">
+                            --FORCE_DOUBLE_BOOK
+                          </span>
+                        </label>
+                      </div>
+
+                      {previewSlots.length > 0 ? (
+                        <div className="border border-border bg-secondary/30 px-3 py-2 font-mono text-[10px] leading-relaxed">
+                          <span className="text-muted-foreground">preview:</span>{" "}
+                          {previewSlots.map((p) => (
+                            <span key={p.id} className="text-foreground">
+                              {p.name} →{" "}
+                              {p.at.toLocaleString("en-IN", {
+                                timeZone: "Asia/Kolkata",
+                                day: "2-digit",
+                                month: "short",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: false,
+                              })}{" "}
+                              · {p.panel}
+                              {"  "}
+                            </span>
+                          ))}
+                          {movable.length > 3 ? (
+                            <span className="text-muted-foreground/70">
+                              … +{movable.length - 3} more
+                              {slotMode === "SEQUENTIAL"
+                                ? ` (last ends +${(movable.length - 1) * intervalMinutes} min)`
+                                : ""}
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p className="font-mono text-[10px] leading-relaxed text-muted-foreground/70">
+                      Status moves without a slot - interview mail stays held
+                      until you allot slots (per file, or here in bulk).
+                    </p>
+                  )}
+                </div>
+              ) : null}
               {error ? (
                 <p className="font-mono text-[10px] tracking-widest text-destructive" role="alert">
                   {error}
@@ -3668,15 +4125,24 @@ function BulkDialog({
                 <button
                   type="button"
                   onClick={run}
-                  disabled={busy || movable.length === 0}
+                  disabled={busy || movable.length === 0 || !slotReady}
+                  title={
+                    !slotReady
+                      ? "Pick a slot date + start time first"
+                      : undefined
+                  }
                   className={cn(
                     "inline-flex h-9 items-center gap-1.5 border px-4 font-mono text-[10px] font-bold tracking-widest transition-colors",
-                    movable.length > 0 && !busy
+                    movable.length > 0 && !busy && slotReady
                       ? "border-cyan-300 bg-cyan-300 text-[#05080d] hover:shadow-[0_0_18px_rgba(103,232,249,0.5)]"
                       : "cursor-not-allowed border-border bg-secondary/40 text-muted-foreground/50"
                   )}
                 >
-                  {busy ? "MOVING…" : `MOVE ${movable.length} → ${getStatusMeta(target).label}`}
+                  {busy
+                    ? "MOVING…"
+                    : slotMode === "NONE"
+                      ? `MOVE ${movable.length} → ${getStatusMeta(target).label}`
+                      : `MOVE + SLOT ${movable.length} → ${getStatusMeta(target).label}`}
                 </button>
               </div>
             </div>
