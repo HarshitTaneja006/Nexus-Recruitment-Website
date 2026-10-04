@@ -65,6 +65,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ExportDialog } from "@/components/nexus/export-dialog";
 
 type SortKey = "newest" | "oldest" | "name";
 type ConsoleTab = "applications" | "agenda" | "outbox";
@@ -131,6 +132,7 @@ export function AdminDashboard() {
   const [page, setPage] = useState(0);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchApps = useCallback(
@@ -248,17 +250,6 @@ export function AdminDashboard() {
 
   const deptLabel = (id: string) => getDepartment(id)?.name ?? id;
 
-  const exportHref = useMemo(() => {
-    const params = new URLSearchParams();
-    if (department) params.set("department", department);
-    if (status) params.set("status", status);
-    if (year) params.set("year", year);
-    if (debouncedQuery) params.set("q", debouncedQuery);
-    if (order !== "newest") params.set("order", order);
-    const qs = params.toString();
-    return `/api/admin/applications/export${qs ? `?${qs}` : ""}`;
-  }, [department, status, year, debouncedQuery, order]);
-
   // "/" anywhere in the console jumps to the grep box
   const searchRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
@@ -341,13 +332,15 @@ export function AdminDashboard() {
             />
             RESCAN
           </button>
-          <a
-            href={exportHref}
+          <button
+            type="button"
+            onClick={() => setExportOpen(true)}
+            title="Custom export - filtered rows or ticked records, caller-chosen columns (CSV/JSON)"
             className="inline-flex h-9 items-center gap-2 border border-primary/50 bg-primary/10 px-3 font-mono text-[10px] tracking-widest text-primary transition-colors hover:bg-primary hover:text-primary-foreground"
           >
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
-            EXPORT_CSV
-          </a>
+            EXPORT{selectedIds.length > 0 ? ` (${selectedIds.length})` : ""}
+          </button>
         </div>
       </div>
 
@@ -799,6 +792,18 @@ export function AdminDashboard() {
         onClose={() => setSelected(null)}
       />
 
+      <ExportDialog
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        department={department}
+        status={status}
+        year={year}
+        query={debouncedQuery}
+        order={order}
+        filteredCount={apps.length}
+        selectedIds={selectedIds}
+      />
+
       <EmailComposer
         open={composerOpen}
         apps={pageSelected}
@@ -1177,6 +1182,8 @@ function OutboxPanel() {
         Only submission receipts auto-send - everything else waits here for a manual
         flush (all or ticked rows). Failures keep the provider reason →
         RETRY re-queues them. REMIND_DRAFTS sweeps draft-only students near the deadline (48h dedupe).
+        ACCEPTED rows additionally need their PNG in the `certificates` bucket
+        (`&lt;email-local-part&gt;.png`) - the flush attaches it and blocks with CERT_MISSING until uploaded.
       </p>
 
       {/* outbox filters */}

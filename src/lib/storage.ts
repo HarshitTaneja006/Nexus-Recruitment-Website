@@ -533,6 +533,8 @@ export interface ListOptions {
   year?: number;
   q?: string;
   order?: "newest" | "oldest" | "name";
+  /** explicit record picker - custom export of ticked rows (capped at 500) */
+  ids?: string[];
 }
 
 /**
@@ -628,6 +630,7 @@ export async function findInterviewConflicts(params: {
 
 export async function listApplications(opts: ListOptions = {}): Promise<ApplicationRecord[]> {
   const order = opts.order ?? "newest";
+  const ids = (opts.ids ?? []).filter(Boolean).slice(0, 500);
 
   if (isSupabaseConfigured) {
     const supabase = getSupabaseAdmin();
@@ -636,6 +639,7 @@ export async function listApplications(opts: ListOptions = {}): Promise<Applicat
         .from(SUPABASE_TABLES.applications)
         .select("*")
         .limit(500);
+      if (ids.length > 0) query = query.in("id", ids);
       if (opts.department) query = query.eq("department", opts.department);
       if (opts.statuses?.length) query = query.in("status", opts.statuses);
       else if (opts.status) query = query.eq("status", opts.status);
@@ -659,6 +663,7 @@ export async function listApplications(opts: ListOptions = {}): Promise<Applicat
   }
 
   const where: Record<string, unknown> = {};
+  if (ids.length > 0) where.id = { in: ids };
   if (opts.department) where.department = opts.department;
   if (opts.statuses?.length) where.status = { in: opts.statuses };
   else if (opts.status) where.status = opts.status;
@@ -679,15 +684,13 @@ export async function listApplications(opts: ListOptions = {}): Promise<Applicat
   return rows.map((row) => mapApplicationRow(row));
 }
 
-/** CSV export of all (optionally filtered) applications. */
-export async function exportApplicationsCsv(opts: ListOptions = {}): Promise<string> {
-  const { COMMON_QUESTIONS, DEPARTMENTS } = await import("@/lib/departments");
+/** Custom CSV export - filtered rows + caller-chosen columns. */
+export async function exportApplicationsCsv(
+  opts: ListOptions & { fields?: string[] } = {}
+): Promise<{ csv: string; count: number; columns: string[] }> {
+  const { resolveExportFields } = await import("@/lib/export-fields");
   const rows = await listApplications(opts);
-
-  const questionIds = [
-    ...COMMON_QUESTIONS.map((q) => q.id),
-    ...DEPARTMENTS.flatMap((d) => d.questions.map((q) => q.id)),
-  ];
+  const defs = await resolveExportFields(opts.fields);
 
   const escape = (value: unknown): string => {
     let s = String(value ?? "");
@@ -697,63 +700,26 @@ export async function exportApplicationsCsv(opts: ListOptions = {}): Promise<str
     return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
 
-  const header = [
-    "app_id",
-    "submitted_at",
-    "full_name",
-    "email",
-    "join_year",
-    "year_of_study",
-    "department",
-    "whatsapp",
-    "status",
-    "interview_at",
-    "interview_mode",
-    "interview_panel",
-    "status_note",
-    "github",
-    "linkedin",
-    "portfolio",
-    "round1_github_url",
-    "round1_report_url",
-    "round1_deploy_url",
-    "round1_submitted_at",
-    "round1_problem_statement",
-    ...questionIds,
-  ];
-
+  const header = defs.map((d) => d.key);
   const lines = [header.join(",")];
   for (const r of rows) {
-    lines.push(
-      [
-        r.id,
-        r.submittedAt,
-        r.fullName,
-        r.email,
-        r.joinYear,
-        r.yearOfStudy,
-        r.department,
-        r.whatsapp ?? "",
-        r.status,
-        r.interviewAt ?? "",
-        r.interviewMode ?? "",
-        r.interviewPanel ?? "",
-        r.statusNote ?? "",
-        r.links?.github ?? "",
-        r.links?.linkedin ?? "",
-        r.links?.portfolio ?? "",
-        r.round1GithubUrl ?? "",
-        r.round1ReportUrl ?? "",
-        r.round1DeployUrl ?? "",
-        r.round1SubmittedAt ?? "",
-        r.round1ProblemStatement ?? "",
-        ...questionIds.map((id) => r.answers?.[id] ?? ""),
-      ]
-        .map(escape)
-        .join(",")
-    );
+    lines.push(defs.map((d) => escape(d.get(r))).join(","));
   }
-  return lines.join("\r\n");
+  return { csv: lines.join("\r\n"), count: rows.length, columns: header };
+}
+
+/** JSON twin of the custom export (same rows/columns, API clients). */
+export async function exportApplicationsJson(
+  opts: ListOptions & { fields?: string[] } = {}
+): Promise<{ rows: Array<Record<string, unknown>>; count: number; columns: string[] }> {
+  const { resolveExportFields } = await import("@/lib/export-fields");
+  const records = await listApplications(opts);
+  const defs = await resolveExportFields(opts.fields);
+  return {
+    rows: records.map((r) => Object.fromEntries(defs.map((d) => [d.key, d.get(r) ?? ""]))),
+    count: records.length,
+    columns: defs.map((d) => d.key),
+  };
 }
 
 /* ------------------------------------------------------------------ */
