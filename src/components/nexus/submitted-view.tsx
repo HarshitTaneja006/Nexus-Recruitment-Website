@@ -391,8 +391,8 @@ export function SubmittedView({
 
 /**
  * Round 1 section on the receipt: fetches the global deadline once and
- * hands the live application to the project panel. Separate full screen
- * also exists at /round1 (same component).
+ * hands the live application to the project panel. This is the only
+ * place the panel lives - there is no standalone Round 1 screen.
  */
 function Round1Section({ application }: { application: ApplicationRecord }) {
   const [deadline, setDeadline] = useState<string | null>(null);
@@ -408,7 +408,7 @@ function Round1Section({ application }: { application: ApplicationRecord }) {
       alive = false;
     };
   }, []);
-  return <TechRound1Panel application={application} deadline={deadline} compact />;
+  return <TechRound1Panel application={application} deadline={deadline} />;
 }
 
 /**
