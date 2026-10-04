@@ -132,6 +132,7 @@ export function AdminDashboard() {
   const [page, setPage] = useState(0);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -300,6 +301,15 @@ export function AdminDashboard() {
           >
             <MailPlus className="h-3.5 w-3.5" aria-hidden="true" />
             EMAIL ({selectedIds.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setBulkOpen(true)}
+            title="Move every listed row to one status at once (e.g. all technical → R1)"
+            className="inline-flex h-9 items-center gap-2 border border-cyan-300/60 bg-cyan-300/10 px-3 font-mono text-[10px] tracking-widest text-cyan-300 transition-colors hover:bg-cyan-300 hover:text-[#05080d]"
+          >
+            <ChevronsRight className="h-3.5 w-3.5" aria-hidden="true" />
+            BULK
           </button>
           <button
             type="button"
@@ -814,6 +824,18 @@ export function AdminDashboard() {
           toast.success(`CUSTOM_MAIL_QUEUED · ${n}`, {
             description: "Rows in the outbox - FLUSH_QUEUE delivers via SMTP.",
           });
+        }}
+      />
+
+      <BulkDialog
+        open={bulkOpen}
+        apps={apps}
+        department={department}
+        status={status}
+        onClose={() => setBulkOpen(false)}
+        onDone={() => {
+          setBulkOpen(false);
+          fetchApps();
         }}
       />
     </div>
@@ -3493,6 +3515,175 @@ function StatsAccessToggle() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* BULK STATUS - move every listed row to one status in one request   */
+/* ------------------------------------------------------------------ */
+
+function BulkDialog({
+  open,
+  apps,
+  department,
+  status,
+  onClose,
+  onDone,
+}: {
+  open: boolean;
+  apps: ApplicationRecord[];
+  department: string;
+  status: string;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const isTechLane = department === "technical";
+  const targets = useMemo(
+    () =>
+      isTechLane
+        ? ["SHORTLISTED_R1", "SHORTLISTED_R2", "INTERVIEWED", "ACCEPTED", "REJECTED"]
+        : department
+          ? ["SHORTLISTED", "INTERVIEWED", "ACCEPTED", "REJECTED"]
+          : ["SHORTLISTED", "SHORTLISTED_R1", "SHORTLISTED_R2", "INTERVIEWED", "ACCEPTED", "REJECTED"],
+    [isTechLane, department]
+  );
+  const [target, setTarget] = useState<string>(isTechLane ? "SHORTLISTED_R1" : "SHORTLISTED");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // reset the target every time the dialog opens (lane-aware default)
+  useEffect(() => {
+    if (open) {
+      setTarget(isTechLane ? "SHORTLISTED_R1" : "SHORTLISTED");
+      setError(null);
+    }
+  }, [open, isTechLane]);
+
+  const movable = useMemo(() => apps.filter((a) => a.status !== target), [apps, target]);
+
+  const run = async () => {
+    if (busy || movable.length === 0) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/applications/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: target, ids: movable.map((a) => a.id) }),
+      });
+      const data = (await res.json().catch(() => null)) as {
+        error?: string;
+        message?: string;
+        updated?: number;
+        emailed?: number;
+        held?: number;
+        skippedAlreadyThere?: number;
+        skippedOffLane?: number;
+        truncated?: number;
+        failed?: number;
+      } | null;
+      if (!res.ok) throw new Error(data?.error ?? String(res.status));
+      toast.success(`BULK_COMMITTED · ${getStatusMeta(target).label} × ${data?.updated ?? 0}`, {
+        description: `${data?.emailed ?? 0} mail(s) queued - flush the outbox to send.${(data?.held ?? 0) > 0 ? ` ${data?.held} held (no slot yet).` : ""}${(data?.skippedOffLane ?? 0) > 0 ? ` ${data?.skippedOffLane} skipped (wrong lane).` : ""}${(data?.failed ?? 0) > 0 ? ` ${data?.failed} failed.` : ""}`,
+      });
+      onDone();
+    } catch {
+      setError("Bulk move failed - try a narrower filter set.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="w-full sm:max-w-lg border-border bg-popover font-mono">
+        <DialogHeader>
+          <DialogTitle className="text-base tracking-wider">
+            <span className="text-primary">$ bulk</span> --move --status
+          </DialogTitle>
+          <DialogDescription asChild>
+            <div className="space-y-3 text-left">
+              <p className="font-mono text-[11px] leading-relaxed text-muted-foreground">
+                Moves every listed row below to one status in a single request.
+                Each moved file gets its history entry and its status mail
+                queued - flush the outbox to send. R1/R2 skip non-technical
+                rows automatically.
+              </p>
+              <div className="border border-border bg-secondary/30 px-3 py-2 font-mono text-[11px]">
+                <span className="text-muted-foreground">scope:</span>{" "}
+                <span className="text-foreground">
+                  {department ? `d ${department}/` : "all domains"}
+                  {status ? ` · ${getStatusMeta(status).label}` : " · any status"}
+                </span>{" "}
+                → <span className="text-cyan-300">{apps.length} listed</span>
+                {apps.length !== movable.length ? (
+                  <span className="text-muted-foreground/70">
+                    {" "}
+                    · {movable.length} will move ({apps.length - movable.length} already there)
+                  </span>
+                ) : null}
+              </div>
+              <label className="flex flex-col gap-1.5">
+                <span className="font-mono text-[9px] tracking-[0.25em] text-muted-foreground">
+                  TARGET_STATUS
+                </span>
+                <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Bulk target status">
+                  {targets.map((s) => {
+                    const meta = getStatusMeta(s);
+                    const activeTarget = target === s;
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        role="radio"
+                        aria-checked={activeTarget}
+                        title={meta.adminHint}
+                        onClick={() => setTarget(s)}
+                        className={cn(
+                          "border px-2 py-1 font-mono text-[9px] tracking-widest transition-colors",
+                          activeTarget
+                            ? meta.chipClass
+                            : "border-border text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                        )}
+                      >
+                        {meta.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </label>
+              {error ? (
+                <p className="font-mono text-[10px] tracking-widest text-destructive" role="alert">
+                  {error}
+                </p>
+              ) : null}
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="inline-flex h-9 items-center border border-border px-4 font-mono text-[10px] tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  CANCEL
+                </button>
+                <button
+                  type="button"
+                  onClick={run}
+                  disabled={busy || movable.length === 0}
+                  className={cn(
+                    "inline-flex h-9 items-center gap-1.5 border px-4 font-mono text-[10px] font-bold tracking-widest transition-colors",
+                    movable.length > 0 && !busy
+                      ? "border-cyan-300 bg-cyan-300 text-[#05080d] hover:shadow-[0_0_18px_rgba(103,232,249,0.5)]"
+                      : "cursor-not-allowed border-border bg-secondary/40 text-muted-foreground/50"
+                  )}
+                >
+                  {busy ? "MOVING…" : `MOVE ${movable.length} → ${getStatusMeta(target).label}`}
+                </button>
+              </div>
+            </div>
+          </DialogDescription>
+        </DialogHeader>
+      </DialogContent>
+    </Dialog>
   );
 }
 
