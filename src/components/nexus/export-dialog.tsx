@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckSquare, Download, Square, X } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -10,6 +10,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DEPARTMENTS } from "@/lib/departments";
+import { APPLICATION_STATUSES, getStatusMeta } from "@/lib/status";
+import { formatYearOfStudy } from "@/lib/vit";
 import { cn } from "@/lib/utils";
 
 interface CatalogField {
@@ -76,12 +79,29 @@ export function ExportDialog({
   const [checked, setChecked] = useState<string[] | null>(null);
   const [scope, setScope] = useState<"filtered" | "selected">("filtered");
   const [format, setFormat] = useState<"csv" | "json">("csv");
+  // dialog-local filters (seeded from the console on open, then independent)
+  const [fDept, setFDept] = useState("");
+  const [fStatus, setFStatus] = useState("");
+  const [fYear, setFYear] = useState("");
+  const [previewCount, setPreviewCount] = useState<number | null>(null);
+  const freshOpen = useRef(false);
 
   useEffect(() => {
-    if (!open) return;
-    // default the scope to ticked rows when the dialog opens with a selection
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setScope(selectedIds.length > 0 ? "selected" : "filtered");
+    if (!open) {
+      freshOpen.current = false;
+      return;
+    }
+    // seed scope + filters from the console on fresh open only - later
+    // console changes behind the dialog never clobber in-progress picks
+    if (!freshOpen.current) {
+      freshOpen.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setScope(selectedIds.length > 0 ? "selected" : "filtered");
+      setFDept(department);
+      setFStatus(status);
+      setFYear(year);
+      setPreviewCount(filteredCount);
+    }
     let live = true;
     fetch("/api/admin/applications/export/fields", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
@@ -96,15 +116,39 @@ export function ExportDialog({
     return () => {
       live = false;
     };
-  }, [open, selectedIds.length]);
+  }, [open, department, status, year, filteredCount, selectedIds.length]);
 
-  const rowCount = scope === "selected" ? selectedIds.length : filteredCount;
+  // live row preview for the dialog's own filter set (search/sort inherited)
+  useEffect(() => {
+    if (!open) return;
+    const params = new URLSearchParams();
+    if (fDept) params.set("department", fDept);
+    if (fStatus) params.set("status", fStatus);
+    if (fYear) params.set("year", fYear);
+    if (query) params.set("q", query);
+    if (order !== "newest") params.set("order", order);
+    let live = true;
+    fetch(`/api/admin/applications?${params}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { applications?: unknown[] } | null) => {
+        if (live && d && Array.isArray(d.applications)) {
+          setPreviewCount(d.applications.length);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [open, fDept, fStatus, fYear, query, order]);
+
+  const effectiveFiltered = previewCount ?? filteredCount;
+  const rowCount = scope === "selected" ? selectedIds.length : effectiveFiltered;
 
   const href = useMemo(() => {
     const params = new URLSearchParams();
-    if (department) params.set("department", department);
-    if (status) params.set("status", status);
-    if (year) params.set("year", year);
+    if (fDept) params.set("department", fDept);
+    if (fStatus) params.set("status", fStatus);
+    if (fYear) params.set("year", fYear);
     if (query) params.set("q", query);
     if (order !== "newest") params.set("order", order);
     if (scope === "selected" && selectedIds.length > 0)
@@ -116,7 +160,7 @@ export function ExportDialog({
     if (format === "json") params.set("format", "json");
     const qs = params.toString();
     return `/api/admin/applications/export${qs ? `?${qs}` : ""}`;
-  }, [department, status, year, query, order, scope, selectedIds, checked, catalog, format]);
+  }, [fDept, fStatus, fYear, query, order, scope, selectedIds, checked, catalog, format]);
 
   const toggle = (key: string) =>
     setChecked((prev) => {
@@ -151,8 +195,9 @@ export function ExportDialog({
             <span className="text-primary">$ export</span> --custom
           </DialogTitle>
           <DialogDescription className="text-left font-mono text-[10px] text-muted-foreground">
-            filtered rows + ticked records, caller-chosen columns. What you pick is
-            what lands in the file.
+            filter by department / status / year, pick ticked records or
+            filtered rows, choose columns. What you pick is what lands in
+            the file.
           </DialogDescription>
         </DialogHeader>
 
@@ -161,7 +206,7 @@ export function ExportDialog({
           <ScopeButton
             active={scope === "filtered"}
             onClick={() => setScope("filtered")}
-            label={`FILTERED (${filteredCount})`}
+            label={`FILTERED (${effectiveFiltered})`}
           />
           <ScopeButton
             active={scope === "selected"}
@@ -189,6 +234,70 @@ export function ExportDialog({
             ))}
           </div>
         </div>
+
+        {/* filters */}
+        <section aria-label="Export filters" className="grid gap-2 sm:grid-cols-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-[9px] uppercase tracking-[0.25em] text-muted-foreground/60">
+              department
+            </span>
+            <select
+              value={fDept}
+              onChange={(e) => setFDept(e.target.value)}
+              aria-label="Export filter: department"
+              className="h-8 border border-input bg-background/80 px-2 text-[11px] text-foreground focus:border-primary focus:outline-none"
+            >
+              <option value="">ANY</option>
+              {DEPARTMENTS.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {`d ${d.dir}/`}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[9px] uppercase tracking-[0.25em] text-muted-foreground/60">
+              status
+            </span>
+            <select
+              value={fStatus}
+              onChange={(e) => setFStatus(e.target.value)}
+              aria-label="Export filter: status"
+              className="h-8 border border-input bg-background/80 px-2 text-[11px] text-foreground focus:border-primary focus:outline-none"
+            >
+              <option value="">ANY</option>
+              {APPLICATION_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {getStatusMeta(s).label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[9px] uppercase tracking-[0.25em] text-muted-foreground/60">
+              year
+            </span>
+            <select
+              value={fYear}
+              onChange={(e) => setFYear(e.target.value)}
+              aria-label="Export filter: year of study"
+              className="h-8 border border-input bg-background/80 px-2 text-[11px] text-foreground focus:border-primary focus:outline-none"
+            >
+              <option value="">ANY</option>
+              {[1, 2, 3, 4, 5].map((y) => (
+                <option key={y} value={String(y)}>
+                  {formatYearOfStudy(y).toUpperCase()}
+                </option>
+              ))}
+            </select>
+          </label>
+        </section>
+        {query || order !== "newest" ? (
+          <p className="font-mono text-[9px] tracking-widest text-muted-foreground/60">
+            + console context {query ? `· grep: "${query.slice(0, 40)}"` : ""} · sort:{" "}
+            {order.toUpperCase()}
+          </p>
+        ) : null}
 
         {/* presets */}
         <div className="flex flex-wrap items-center gap-1.5">
