@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import {
   CalendarClock,
   CheckCircle2,
@@ -39,11 +38,9 @@ interface Round1State {
 export function TechRound1Panel({
   application: initial,
   deadline: initialDeadline,
-  compact = false,
 }: {
   application: ApplicationRecord;
   deadline: string | null;
-  compact?: boolean;
 }) {
   const [application, setApplication] = useState(initial);
   const [deadline, setDeadline] = useState<string | null>(initialDeadline);
@@ -379,15 +376,6 @@ export function TechRound1Panel({
               . Re-submitting overwrites it{closed ? "" : " until the deadline"}.
             </span>
           </p>
-        ) : null}
-
-        {!compact ? (
-          <Link
-            href="/apply"
-            className="inline-flex font-mono text-[10px] tracking-widest text-muted-foreground hover:text-primary"
-          >
-            ← BACK_TO_RECEIPT
-          </Link>
         ) : null}
       </div>
     </section>
