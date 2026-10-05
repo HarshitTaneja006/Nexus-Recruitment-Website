@@ -152,6 +152,9 @@ export async function POST(req: NextRequest) {
   let interviewMode: string | null = null;
   let singlePanel: string | null = null;
   let seqPanels: string[] = [];
+  // fallback panel when the request names none: the roster's first panel,
+  // never the hardcoded "Panel 1" (the roster may have been renamed).
+  let rosterDefault = DEFAULT_INTERVIEW_PANEL;
 
   if (wantsSlot) {
     if (
@@ -163,6 +166,7 @@ export async function POST(req: NextRequest) {
     interviewMode = parsed.data.interviewMode ?? "GOOGLE_MEET";
 
     const roster = await getInterviewPanels();
+    rosterDefault = roster[0] ?? DEFAULT_INTERVIEW_PANEL;
     if (parsed.data.interviewPanel != null) {
       const explicit = normalizePanelName(parsed.data.interviewPanel);
       if (!explicit || !roster.includes(explicit)) {
@@ -260,7 +264,7 @@ export async function POST(req: NextRequest) {
         ? seqPanels
         : singlePanel
           ? [singlePanel]
-          : [DEFAULT_INTERVIEW_PANEL];
+          : [rosterDefault];
 
     let updated = 0;
     let emailed = 0;
@@ -289,7 +293,7 @@ export async function POST(req: NextRequest) {
             panel =
               singlePanel ??
               normalizePanelName(app.interviewPanel) ??
-              DEFAULT_INTERVIEW_PANEL;
+              rosterDefault;
           } else if (slotMode === "SEQUENTIAL" && seqStartAt) {
             interviewAt = new Date(
               startMs + seqIndex * interval * 60_000
@@ -300,7 +304,7 @@ export async function POST(req: NextRequest) {
                 ? fallbackPanels[seqIndex % fallbackPanels.length]
                 : (singlePanel ??
                   normalizePanelName(app.interviewPanel) ??
-                  DEFAULT_INTERVIEW_PANEL);
+                  rosterDefault);
           }
 
           // per-panel overlap guard (±45min) - skipped files are reported,
@@ -311,7 +315,7 @@ export async function POST(req: NextRequest) {
               excludeId: app.id,
               aroundIso: interviewAt,
               windowMinutes: 45,
-              panel: panel ?? DEFAULT_INTERVIEW_PANEL,
+              panel: panel ?? rosterDefault,
             });
             if (existing.length > 0) {
               return { conflicted: true as const, app, interviewAt, panel };
