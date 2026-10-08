@@ -1,4 +1,5 @@
 import type { ApplicationRecord } from "@/lib/storage";
+import { resolveSlotPanel } from "@/lib/departments";
 
 /**
  * Custom export field registry - single source of truth for the
@@ -8,6 +9,30 @@ import type { ApplicationRecord } from "@/lib/storage";
  * and a row extractor. Question answers (common_* / tech_* / ...) are
  * appended dynamically from DEPARTMENTS so new questions need no edit here.
  */
+
+/**
+ * Interview slot in export-friendly form: "05 Sep 2026 (14:30)".
+ * The drive runs on IST, so the wall-clock reading matches the review
+ * console (raw ISO UTC would be unreadable in a spreadsheet).
+ */
+export function formatExportSlot(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const date = d.toLocaleDateString("en-GB", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+  const time = d.toLocaleTimeString("en-GB", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return `${date} (${time})`;
+}
 
 export type ExportFieldGroup =
   | "identity"
@@ -58,7 +83,7 @@ const BASE_FIELDS: ExportFieldDef[] = [
     get: (r) => r.statusUpdatedAt ?? "",
   },
 
-  { key: "interview_at", label: "interview_at", group: "interview", get: (r) => r.interviewAt ?? "" },
+  { key: "interview_at", label: "interview_at", group: "interview", get: (r) => formatExportSlot(r.interviewAt) },
   {
     key: "interview_mode",
     label: "interview_mode",
@@ -69,7 +94,9 @@ const BASE_FIELDS: ExportFieldDef[] = [
     key: "interview_panel",
     label: "interview_panel",
     group: "interview",
-    get: (r) => r.interviewPanel ?? "",
+    // legacy rows store null = default panel; resolve it whenever a slot
+    // exists so the column is never mysteriously blank on slotted rows
+    get: (r) => (r.interviewAt ? resolveSlotPanel(r.interviewPanel) : (r.interviewPanel ?? "")),
   },
 
   { key: "github", label: "github", group: "links", get: (r) => r.links?.github ?? "" },

@@ -101,8 +101,12 @@ export async function PATCH(
   // leave the panel untouched.
   const slotted = isSlottedShortlistStatus(parsed.data.status);
   let interviewPanel: string | null | undefined;
+  let rosterDefault = DEFAULT_INTERVIEW_PANEL;
   if (slotted && interviewAt) {
     const panels = await getInterviewPanels();
+    // fallback when the commit names no panel: the roster's first panel,
+    // never the hardcoded "Panel 1" (the roster may have been renamed).
+    rosterDefault = panels[0] ?? DEFAULT_INTERVIEW_PANEL;
     const explicit = normalizePanelName(parsed.data.interviewPanel);
     if (parsed.data.interviewPanel != null && explicit === null) {
       return NextResponse.json({ error: "VALIDATION_FAILED" }, { status: 400 });
@@ -118,7 +122,7 @@ export async function PATCH(
         return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
       }
       interviewPanel =
-        normalizePanelName(current.interviewPanel) ?? DEFAULT_INTERVIEW_PANEL;
+        normalizePanelName(current.interviewPanel) ?? rosterDefault;
     }
   }
 
@@ -132,14 +136,14 @@ export async function PATCH(
         excludeId: id,
         aroundIso: interviewAt,
         windowMinutes: 45,
-        panel: interviewPanel ?? DEFAULT_INTERVIEW_PANEL,
+        panel: interviewPanel ?? rosterDefault,
       });
       if (conflicts.length > 0) {
         return NextResponse.json(
           {
             error: "SLOT_CONFLICT",
-            message: `Another candidate on ${interviewPanel ?? DEFAULT_INTERVIEW_PANEL} already holds an interview slot within ±45 min of this one.`,
-            panel: interviewPanel ?? DEFAULT_INTERVIEW_PANEL,
+            message: `Another candidate on ${interviewPanel ?? rosterDefault} already holds an interview slot within ±45 min of this one.`,
+            panel: interviewPanel ?? rosterDefault,
             conflicts: conflicts.map((c) => ({
               id: c.id,
               fullName: c.fullName,
