@@ -132,6 +132,7 @@ export function AdminDashboard() {
   const [page, setPage] = useState(0);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [composerOpen, setComposerOpen] = useState(false);
+  const [submittedOnly, setSubmittedOnly] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -181,9 +182,11 @@ export function AdminDashboard() {
     };
   }, [query]);
 
-  // any filter/order change sends the reader back to page one
+  // any filter/order change sends the reader back to page one (and drops
+  // the R1 submitted-only view - it only exists on the R1 status filter)
   useEffect(() => {
     setPage(0);
+    setSubmittedOnly(false);
   }, [department, status, year, debouncedQuery, order]);
 
   // auto-refresh every 30s
@@ -207,7 +210,18 @@ export function AdminDashboard() {
     return n;
   }, [data]);
 
-  const apps = data?.applications ?? [];
+  /** R1 cohort split for the submitted-only toggle (server already scopes to R1) */
+  const r1SubmittedCount = useMemo(
+    () => (data?.applications ?? []).filter((a) => a.round1SubmittedAt).length,
+    [data]
+  );
+  const apps = useMemo(() => {
+    const list = data?.applications ?? [];
+    if (status === "SHORTLISTED_R1" && submittedOnly) {
+      return list.filter((a) => a.round1SubmittedAt);
+    }
+    return list;
+  }, [data, status, submittedOnly]);
   const pageCount = Math.max(1, Math.ceil(apps.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
   const pageRows = useMemo(
@@ -559,6 +573,18 @@ export function AdminDashboard() {
             />
           );
         })}
+        {status === "SHORTLISTED_R1" ? (
+          <label className="inline-flex cursor-pointer items-center gap-2 border border-cyan-300/40 bg-cyan-300/5 px-2.5 py-1.5 font-mono text-[10px] tracking-widest text-cyan-300 transition-colors hover:bg-cyan-300/15">
+            <input
+              type="checkbox"
+              checked={submittedOnly}
+              onChange={(e) => setSubmittedOnly(e.target.checked)}
+              aria-label="Show only students who submitted their Round 1 project"
+              className="h-3 w-3 accent-cyan-300"
+            />
+            SUBMITTED_ONLY ({r1SubmittedCount}/{data?.applications.length ?? 0})
+          </label>
+        ) : null}
       </section>
 
       {/* year filter row */}
