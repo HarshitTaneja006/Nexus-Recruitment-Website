@@ -1173,7 +1173,7 @@ function OutboxPanel() {
         flush (all or ticked rows). Failures keep the provider reason →
         RETRY re-queues them. REMIND_DRAFTS sweeps draft-only students near the deadline (48h dedupe).
         ACCEPTED rows additionally need their PNG in the `certificates` bucket
-        (`&lt;email-local-part&gt;.png`) - the flush attaches it and blocks with CERT_MISSING until uploaded.
+        (`&lt;whatsapp-number&gt;.png`) - the flush attaches it and blocks with CERT_MISSING until uploaded.
       </p>
 
       {/* outbox filters */}

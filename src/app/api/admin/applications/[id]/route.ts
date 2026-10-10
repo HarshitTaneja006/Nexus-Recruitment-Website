@@ -4,7 +4,7 @@ import { getAdminSession } from "@/lib/admin";
 import { isApplicationStatus, isInterviewMode, getStatusMeta } from "@/lib/status";
 import { getDepartmentName, getDomainWhatsappGroupLink, DEFAULT_INTERVIEW_PANEL, normalizePanelName } from "@/lib/departments";
 import { NEXUS_COMMUNITY_ENV_KEY, getNexusCommunityLink } from "@/lib/community";
-import { certificatePathForEmail, CERTIFICATE_BUCKET } from "@/lib/certificates";
+import { certificatePathForWhatsapp, CERTIFICATE_BUCKET } from "@/lib/certificates";
 import {
   updateApplicationStatus,
   queueNotification,
@@ -221,7 +221,7 @@ export async function PATCH(
             "",
             `Join the Nexus WhatsApp Community for onboarding and your first build night: ${communityLink}`,
             "",
-            `P.S. Your acceptance certificate (${CERTIFICATE_BUCKET}/${certificatePathForEmail(updated.email)}) rides along with this email - it is attached when core flushes the outbox.`
+            `P.S. Your acceptance certificate (${CERTIFICATE_BUCKET}/${certificatePathForWhatsapp(updated.whatsapp)}) rides along with this email - it is attached when core flushes the outbox.`
           );
         }
         parts.push("", "- NEXUS core team · VIT Chennai", "https://nexus.runs-on.dev");
