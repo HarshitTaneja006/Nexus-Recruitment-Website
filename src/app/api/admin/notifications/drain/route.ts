@@ -7,13 +7,15 @@ import {
   listQueuedNotificationsByIds,
   markNotificationSent,
   markNotificationFailed,
+  getApplicationById,
+  findApplicationByEmail,
 } from "@/lib/storage";
 import { queueDraftReminderSweep } from "@/lib/notify";
 import { getMailProvider, sendMail } from "@/lib/mailer";
 import {
   CERTIFICATE_BUCKET,
-  certificatePathForEmail,
-  fetchCertificateForEmail,
+  certificatePathForWhatsapp,
+  fetchCertificateForWhatsapp,
   isAcceptanceNotification,
 } from "@/lib/certificates";
 
@@ -47,11 +49,12 @@ const bodySchema = z.object({
  *                              delivery is simulated so the console state
  *                              machine stays testable
  * Acceptance mails (subject/body carrying ACCEPTED) additionally require
- * their PNG in the `certificates` bucket
- * (`<email-local-part>.png`) - the drain downloads it and attaches it
- * here at flush time. A missing PNG marks the row FAILED with a
- * CERT_MISSING reason and keeps it QUEUED-side (retry after uploading),
- * in both smtp and sandbox modes.
+ * their PNG in the `certificates` bucket (`<whatsapp-number>.png` - the
+ * 10-digit number on the application) - the drain resolves the number
+ * from the application, downloads the PNG and attaches it here at flush
+ * time. A missing PNG marks the row FAILED with a CERT_MISSING reason
+ * and keeps it QUEUED-side (retry after uploading), in both smtp and
+ * sandbox modes.
  * Failures mark the row FAILED with the provider reason; the core team can
  * RETRY (re-queue) from the outbox panel and drain again.
  */
@@ -99,9 +102,30 @@ export async function POST(req: Request) {
       // mail may leave, regardless of provider. Checked first so even
       // sandbox mode cannot flush an acceptance without its certificate.
       if (isAcceptanceNotification(row)) {
-        let cert: Awaited<ReturnType<typeof fetchCertificateForEmail>>;
+        // Resolve the student's WhatsApp number from the application
+        // (by id, falling back to email) - the certificate object is
+        // keyed <whatsapp>.png, not by email.
+        let whatsapp: string | null = null;
         try {
-          cert = await fetchCertificateForEmail(row.email);
+          const byId = row.applicationId?.startsWith("draft:")
+            ? null
+            : await getApplicationById(row.applicationId);
+          whatsapp = byId?.whatsapp?.trim()
+            ? byId.whatsapp.trim()
+            : (await findApplicationByEmail(row.email))?.whatsapp?.trim() || null;
+        } catch {
+          whatsapp = null;
+        }
+        if (!whatsapp || !/^[0-9]{10}$/.test(whatsapp.replace(/[^0-9]/g, ""))) {
+          const reason =
+            `CERT_MISSING: no WhatsApp number on file for ${row.email} - cannot resolve ${CERTIFICATE_BUCKET}/<whatsapp>.png`.slice(0, 240);
+          await markNotificationFailed(row.id, reason);
+          failed.push({ id: row.id, email: row.email, reason });
+          continue;
+        }
+        let cert: Awaited<ReturnType<typeof fetchCertificateForWhatsapp>>;
+        try {
+          cert = await fetchCertificateForWhatsapp(whatsapp);
         } catch (err) {
           const reason = `CERT_ERROR: ${err instanceof Error ? err.message : "storage lookup failed"}`.slice(0, 240);
           await markNotificationFailed(row.id, reason);
@@ -109,7 +133,7 @@ export async function POST(req: Request) {
           continue;
         }
         if (!cert) {
-          const path = certificatePathForEmail(row.email);
+          const path = certificatePathForWhatsapp(whatsapp);
           const reason =
             `CERT_MISSING: ${CERTIFICATE_BUCKET}/${path} not in bucket - upload the PNG, then RETRY + flush`.slice(0, 240);
           await markNotificationFailed(row.id, reason);

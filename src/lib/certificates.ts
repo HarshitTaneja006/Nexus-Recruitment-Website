@@ -5,8 +5,8 @@ import { getSupabaseAdmin, isSupabaseConfigured } from "@/lib/supabase";
  *
  * Convention (agreed with core):
  *   bucket : "certificates" (private, service_role only)
- *   object : "<email-local-part>.png" at the bucket root, lowercased
- *            e.g. harshit.taneja2025@vitstudent.ac.in → harshit.taneja2025.png
+ *   object : "<whatsapp-number>.png" at the bucket root
+ *            e.g. 9876543210.png (10-digit normalized number on file)
  *
  * Certificates are attached ONLY at flush time (the outbox drain
  * downloads the PNG and hands it to nodemailer). Queue time never
@@ -25,14 +25,15 @@ export const CERTIFICATE_CONTENT_TYPE = "image/png";
 export const CERTIFICATE_MAX_BYTES = 8 * 1024 * 1024;
 
 /**
- * Map a student email to its certificate object path.
- * Lowercased local-part + ".png", with path separators stripped so a
- * crafted email can never escape the bucket root.
+ * Map a student's WhatsApp number to its certificate object path.
+ * Digits only + ".png" (e.g. "9876543210" → "9876543210.png"), with
+ * everything else stripped so a malformed value can never escape the
+ * bucket root. The number on file is already 10-digit normalized at
+ * apply time; the strip is belt-and-braces.
  */
-export function certificatePathForEmail(email: string): string {
-  const local = email.trim().toLowerCase().split("@")[0] ?? "";
-  const safe = local.replace(/[^a-z0-9._-]/g, "");
-  return `${safe || "unknown"}.png`;
+export function certificatePathForWhatsapp(whatsapp: string): string {
+  const digits = whatsapp.replace(/[^0-9]/g, "");
+  return `${digits || "unknown"}.png`;
 }
 
 /**
@@ -56,7 +57,7 @@ function isMissingObjectError(message: string): boolean {
 }
 
 export interface CertificateAttachment {
-  /** object path inside the bucket, e.g. "harshit.taneja2025.png" */
+  /** object path inside the bucket, e.g. "9876543210.png" */
   path: string;
   /** file bytes for the nodemailer attachment */
   content: Buffer;
@@ -67,14 +68,14 @@ export interface CertificateAttachment {
 }
 
 /**
- * Download the certificate for an email. Returns null when the object
- * is absent (caller marks the row CERT_MISSING and keeps it QUEUED).
- * Throws on storage misconfiguration or transport errors.
+ * Download the certificate for a WhatsApp number. Returns null when the
+ * object is absent (caller marks the row CERT_MISSING and keeps it
+ * QUEUED). Throws on storage misconfiguration or transport errors.
  */
-export async function fetchCertificateForEmail(
-  email: string
+export async function fetchCertificateForWhatsapp(
+  whatsapp: string
 ): Promise<CertificateAttachment | null> {
-  const path = certificatePathForEmail(email);
+  const path = certificatePathForWhatsapp(whatsapp);
   if (!isSupabaseConfigured) {
     throw new Error(
       `certificate storage not configured - cannot verify ${CERTIFICATE_BUCKET}/${path}`
@@ -112,10 +113,10 @@ export async function fetchCertificateForEmail(
  * True when the object lists; false when absent. Throws on transport
  * errors so real outages are not mistaken for a missing PNG.
  */
-export async function certificateExistsForEmail(
-  email: string
+export async function certificateExistsForWhatsapp(
+  whatsapp: string
 ): Promise<{ path: string; exists: boolean }> {
-  const path = certificatePathForEmail(email);
+  const path = certificatePathForWhatsapp(whatsapp);
   if (!isSupabaseConfigured) {
     throw new Error("certificate storage not configured");
   }

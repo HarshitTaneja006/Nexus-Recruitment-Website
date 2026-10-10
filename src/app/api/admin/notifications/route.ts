@@ -4,11 +4,13 @@ import { getAdminSession } from "@/lib/admin";
 import { getMailProvider } from "@/lib/mailer";
 import {
   CERTIFICATE_BUCKET,
-  certificateExistsForEmail,
-  certificatePathForEmail,
+  certificateExistsForWhatsapp,
+  certificatePathForWhatsapp,
   isAcceptanceNotification,
 } from "@/lib/certificates";
 import {
+  findApplicationByEmail,
+  getApplicationById,
   listNotifications,
   listQueuedNotifications,
   markAllNotificationsSent,
@@ -102,16 +104,21 @@ export async function PATCH(req: NextRequest) {
     if (parsed.data.all) {
       // Bulk-claim bypasses the drain, so it must not silently flush
       // acceptance mails past the certificate gate. Refuse while any
-      // QUEUED acceptance row lacks its PNG.
+      // QUEUED acceptance row lacks its PNG (<whatsapp>.png).
       const queued = await listQueuedNotifications(100);
       const missing: string[] = [];
       for (const row of queued) {
         if (!isAcceptanceNotification(row)) continue;
         try {
-          const { exists } = await certificateExistsForEmail(row.email);
-          if (!exists) missing.push(`${CERTIFICATE_BUCKET}/${certificatePathForEmail(row.email)}`);
+          const whatsapp = await resolveWhatsappForRow(row.applicationId, row.email);
+          if (!whatsapp) {
+            missing.push(`${CERTIFICATE_BUCKET}/<whatsapp>.png (no number on file for ${row.email})`);
+            continue;
+          }
+          const { exists } = await certificateExistsForWhatsapp(whatsapp);
+          if (!exists) missing.push(`${CERTIFICATE_BUCKET}/${certificatePathForWhatsapp(whatsapp)}`);
         } catch {
-          missing.push(`${CERTIFICATE_BUCKET}/${certificatePathForEmail(row.email)}`);
+          missing.push(`${CERTIFICATE_BUCKET}/<whatsapp>.png (${row.email})`);
         }
       }
       if (missing.length > 0) {
@@ -137,10 +144,14 @@ export async function PATCH(req: NextRequest) {
     const queued = await listQueuedNotifications(100);
     const target = queued.find((n) => n.id === parsed.data.id);
     if (target && isAcceptanceNotification(target)) {
+      const whatsapp = await resolveWhatsappForRow(target.applicationId, target.email);
+      const need = whatsapp
+        ? `${CERTIFICATE_BUCKET}/${certificatePathForWhatsapp(whatsapp)}`
+        : `${CERTIFICATE_BUCKET}/<whatsapp>.png`;
       return NextResponse.json(
         {
           error: "CERT_REQUIRED",
-          message: `Acceptance mail for ${target.email} needs ${CERTIFICATE_BUCKET}/${certificatePathForEmail(target.email)} - flush it from the outbox (FLUSH_SELECTED) instead of claiming here.`,
+          message: `Acceptance mail for ${target.email} needs ${need} - flush it from the outbox (FLUSH_SELECTED) instead of claiming here.`,
         },
         { status: 409 }
       );
@@ -152,4 +163,32 @@ export async function PATCH(req: NextRequest) {
     console.error("[api/admin/notifications] PATCH failed:", err);
     return NextResponse.json({ error: "SERVER_ERROR" }, { status: 500 });
   }
+}
+
+/**
+ * Resolve the 10-digit WhatsApp number backing an outbox row, via the
+ * application id with an email fallback. Null when the application is
+ * gone or carries no usable number.
+ */
+async function resolveWhatsappForRow(
+  applicationId: string,
+  email: string
+): Promise<string | null> {
+  try {
+    if (applicationId && !applicationId.startsWith("draft:")) {
+      const byId = await getApplicationById(applicationId);
+      const w = byId?.whatsapp?.trim();
+      if (w && /^[0-9]{10}$/.test(w.replace(/[^0-9]/g, ""))) return w;
+    }
+  } catch {
+    // fall through to the email lookup
+  }
+  try {
+    const byEmail = await findApplicationByEmail(email);
+    const w = byEmail?.whatsapp?.trim();
+    if (w && /^[0-9]{10}$/.test(w.replace(/[^0-9]/g, ""))) return w;
+  } catch {
+    return null;
+  }
+  return null;
 }
