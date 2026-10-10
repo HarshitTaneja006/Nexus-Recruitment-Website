@@ -16,7 +16,7 @@ import {
   resolveSlotPanel,
 } from "@/lib/departments";
 import { NEXUS_COMMUNITY_ENV_KEY, getNexusCommunityLink } from "@/lib/community";
-import { certificatePathForEmail, CERTIFICATE_BUCKET } from "@/lib/certificates";
+import { certificatePathForWhatsapp, CERTIFICATE_BUCKET } from "@/lib/certificates";
 import {
   listApplications,
   queueNotification,
@@ -474,7 +474,7 @@ async function queueBulkMail(
         "",
         `Join the Nexus WhatsApp Community for onboarding and your first build night: ${communityLink}`,
         "",
-        `P.S. Your acceptance certificate (${CERTIFICATE_BUCKET}/${certificatePathForEmail(app.email)}) rides along with this email - it is attached when core flushes the outbox.`
+        `P.S. Your acceptance certificate (${CERTIFICATE_BUCKET}/${certificatePathForWhatsapp(app.whatsapp)}) rides along with this email - it is attached when core flushes the outbox.`
       );
     }
     parts.push("", "- NEXUS core team · VIT Chennai", "https://nexus.runs-on.dev");
