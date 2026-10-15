@@ -476,7 +476,7 @@ async function queueBulkMail(
       }
       parts.push(
         "",
-        `Join the Nexus WhatsApp Community for onboarding and your first build night: ${communityLink}`,
+        `Join the Nexus WhatsApp Community to stay connected and get started: ${communityLink}`,
         "",
         `P.S. Your acceptance certificate (${CERTIFICATE_BUCKET}/${certificatePathForWhatsapp(app.whatsapp)}) rides along with this email - it is attached when core flushes the outbox.`
       );

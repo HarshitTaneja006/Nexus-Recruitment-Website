@@ -122,7 +122,7 @@ export const STATUS_META: Record<ApplicationStatus, StatusMeta> = {
     chipClass: "border-ok/50 bg-ok/10 text-ok",
     barClass: "bg-emerald-400",
     studentCopy:
-      "Welcome to the collective. Check your email for onboarding - your first build night is waiting.",
+      "Welcome to the collective. Glad to have you onboard. Looking forward to what we'll build together.",
     adminHint: "offer sent - final state",
   },
   REJECTED: {
