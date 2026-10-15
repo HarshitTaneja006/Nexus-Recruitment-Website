@@ -140,6 +140,23 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Pre-validate the ACCEPTED-only requirements BEFORE moving anything:
+  // same split-brain guard as the single-commit route (status flipped
+  // with no mail queued when the env is missing).
+  if (target === "ACCEPTED") {
+    try {
+      getNexusCommunityLink();
+    } catch {
+      return NextResponse.json(
+        {
+          error: "COMMUNITY_LINK_MISSING",
+          message: `${NEXUS_COMMUNITY_ENV_KEY} is not configured - set it before accepting students.`,
+        },
+        { status: 500 }
+      );
+    }
+  }
+
   const sharedNote =
     parsed.data.note?.trim() && parsed.data.note.trim().length > 0
       ? parsed.data.note.trim()
